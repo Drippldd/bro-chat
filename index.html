@@ -8,10 +8,9 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
-            <h2 id="auth-title">Вход в БРО</h2>
+            <h2>Вход в БРО</h2>
             <div id="step-phone">
                 <input type="tel" id="reg-phone" placeholder="+7 или +375...">
                 <button onclick="handlePhoneSubmit()">ДАЛЕЕ</button>
@@ -21,39 +20,38 @@
                 <button onclick="handlePassSubmit()">ДАЛЕЕ</button>
             </div>
             <div id="step-code" class="hidden">
-                <p style="font-size: 12px; margin-bottom: 10px;">Код: 1111</p>
+                <p style="font-size: 12px;">Код: 1111</p>
                 <input type="text" id="reg-code" placeholder="0000">
                 <button onclick="verifyCode()">ПОДТВЕРДИТЬ</button>
             </div>
         </div>
     </div>
 
-    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
             <div class="profile-header">
                 <div class="avatar" id="user-avatar" onclick="document.getElementById('avatar-upload').click()">👤</div>
-                <input type="file" id="avatar-upload" hidden accept="image/*" onchange="changeAvatar(event)">
+                <input type="file" id="avatar-upload" hidden onchange="changeAvatar(event)">
                 <div class="user-info">
                     <b id="user-name-display">Бро</b>
-                    <p id="user-status-display">Твой сок</p>
+                    <p id="user-status-display">На связи</p>
                     <button class="edit-btn" onclick="openEditProfile()">📝 Редакт.</button>
                 </div>
             </div>
             <nav class="side-menu">
                 <ul>
                     <li onclick="showTab('chats')" id="li-chats" class="active-li">💬 Чаты</li>
-                    <li onclick="showTab('feed')" id="li-feed">🚀 Рекомендации</li>
+                    <li onclick="showTab('feed')" id="li-feed">🚀 Лента</li>
                     <li onclick="showTab('wall')" id="li-wall">🖼️ Моя Стена</li>
                     <li onclick="showTab('reposts')" id="li-reposts">🔄 Репосты</li>
-                    <li onclick="showTab('music-tab')" id="li-music-tab">🎵 Музыка</li>
+                    <li onclick="showTab('music')" id="li-music">🎵 Музыка</li>
                 </ul>
             </nav>
-            <button class="kfc-side-btn" onclick="orderKFC()">🍗 KFC / Rostic's</button>
+            <button class="kfc-btn" onclick="orderKFC()">🍗 KFC / Rostic's</button>
         </aside>
 
         <div class="app-container">
-            <header><h1 id="current-page-title">Чаты</h1></header>
+            <header><h1 id="page-title">Чаты</h1></header>
             <main id="content-area">
                 <!-- ЧАТЫ -->
                 <div id="chats-window" class="tab-content">
@@ -61,60 +59,53 @@
                 </div>
 
                 <!-- ЛИЧНЫЙ ЧАТ -->
-                <div id="private-chat-window" class="tab-content hidden">
-                    <div class="chat-header-top">
-                        <button onclick="showTab('chats')" class="back-btn">⬅</button>
-                        <span id="chat-with-name">Чат</span>
-                        <div class="header-actions">
-                            <button class="joint-btn" id="joint-trigger" onclick="toggleJointPlaylist()">🤝 СИНХРОН</button>
+                <div id="chat-window" class="tab-content hidden">
+                    <div class="chat-header">
+                        <button onclick="showTab('chats')" class="back-btn">←</button>
+                        <span id="chat-name">Чат</span>
+                        <div class="chat-buttons">
+                            <button class="joint-btn" id="joint-btn" onclick="toggleSync()">🤝 СИНХРОН</button>
                             <button class="debt-btn" onclick="openDebt()">💸 КИДАЛОВО</button>
                         </div>
                     </div>
-                    <div id="chat-messages" class="messages-container"></div>
-                    <div class="controls">
-                        <div class="input-area">
-                            <label for="chat-media" class="attach-btn">📎</label>
-                            <input type="file" id="chat-media" hidden accept="image/*,video/*" onchange="sendChatMedia(event)">
-                            <input type="text" id="msg-input" placeholder="Написать Бро...">
-                            <button onclick="sendPrivateMsg()" class="send-btn">🚀</button>
-                        </div>
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input">
+                        <label class="attach-btn" for="chat-file">📎</label>
+                        <input type="file" id="chat-file" hidden onchange="sendChatMedia(event)">
+                        <input type="text" id="msg-input" placeholder="Сообщение...">
+                        <button onclick="sendMessage()" class="send-btn">🚀</button>
                     </div>
                 </div>
 
-                <!-- РЕКОМЕНДАЦИИ (ЛЕНТА) -->
+                <!-- ЛЕНТА -->
                 <div id="feed-window" class="tab-content hidden">
-                    <div id="global-feed-posts"></div>
+                    <div id="feed-posts"></div>
                 </div>
 
                 <!-- МОЯ СТЕНА -->
                 <div id="wall-window" class="tab-content hidden">
-                    <div class="wall-input-card">
-                        <textarea id="wall-text" placeholder="Закинь мысль на стену..."></textarea>
-                        <div class="wall-actions">
-                            <label class="media-wall-btn">
-                                <input type="file" id="wall-media-input" hidden accept="image/*,video/*">
-                                📎 Фото/Видео
-                            </label>
-                            <button onclick="postToWall()" class="wall-post-btn">ОПУБЛИКОВАТЬ</button>
+                    <div class="post-input">
+                        <textarea id="post-text" placeholder="Что нового, Бро?..."></textarea>
+                        <div class="post-actions-bar">
+                            <label class="media-label">📎 Фото/Видео <input type="file" id="post-media" hidden onchange="previewMedia()"></label>
+                            <button onclick="createPost()" class="post-btn">ОПУБЛИКОВАТЬ</button>
                         </div>
                     </div>
-                    <div id="my-wall-posts"></div>
+                    <div id="wall-posts"></div>
                 </div>
 
                 <!-- РЕПОСТЫ -->
                 <div id="reposts-window" class="tab-content hidden">
-                    <div id="my-reposts-list"></div>
+                    <div id="reposts-list"></div>
                 </div>
 
                 <!-- МУЗЫКА -->
-                <div id="music-tab-window" class="tab-content hidden">
-                    <div class="sc-container">
-                        <h2 class="sc-title">SOUNDCLOUD</h2>
-                        <div class="music-input-group">
-                            <input type="text" id="sc-link-input" placeholder="Вставь ссылку на SoundCloud">
-                            <button onclick="saveMusicLink()">PLAY</button>
-                        </div>
-                        <div id="sc-player-container"></div>
+                <div id="music-window" class="tab-content hidden">
+                    <div class="music-box">
+                        <h2>SOUNDCLOUD</h2>
+                        <input type="text" id="music-link" placeholder="Вставь ссылку">
+                        <button onclick="playMusic()">ИГРАТЬ</button>
+                        <div id="music-player"></div>
                     </div>
                 </div>
             </main>
