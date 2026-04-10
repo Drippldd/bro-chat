@@ -1,291 +1,302 @@
-// === ДРУЗЬЯ (сохраняем в localStorage) ===
-let friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || { list: [], requests: [] };
+const socket = io('https://bro-mesenger-drippldd.amvera.io');
 
-function renderFriends() {
-    const friendsBox = document.getElementById('friends-list');
-    const requestsBox = document.getElementById('friend-requests');
+let user = { name: "Бро", phone: "", status: "Кайфую", avatar: null };
+let posts = [];
+let groups = [];
+let currentChatType = "private";
+let currentTargetChat = "";
+let debtsDB = JSON.parse(localStorage.getItem("bro_debts")) || {};
+let pendingUser = null;
+let usersDB = JSON.parse(localStorage.getItem("bro_users_db")) || {};
+
+// === ВАЛИДАЦИЯ НОМЕРА ===
+function validatePhone(phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    const isRu = /^(7|8|9)\d{10}$/.test(cleaned);
+    const isBy = /^375\d{9}$/.test(cleaned);
+    return isRu || isBy;
+}
+
+function handlePhoneSubmit() {
+    const ph = document.getElementById('reg-phone').value.trim();
+    if (!validatePhone(ph)) {
+        alert("Введите номер РФ (+7) или РБ (+375)");
+        return;
+    }
+    pendingUser = { phone: ph.replace(/\D/g, '') };
+    document.getElementById('step-phone').classList.add('hidden');
+    document.getElementById('step-pass').classList.remove('hidden');
+}
+
+function handlePassSubmit() {
+    const pass = document.getElementById('reg-pass').value;
+    if (pass.length < 4) {
+        alert("Пароль минимум 4 символа");
+        return;
+    }
+    pendingUser.password = pass;
+    document.getElementById('step-pass').classList.add('hidden');
+    document.getElementById('step-code').classList.remove('hidden');
+}
+
+function verifyCode() {
+    const code = document.getElementById('reg-code').value;
+    if (code !== "1111") {
+        alert("Неверный код!");
+        return;
+    }
     
-    if (!friendsBox) return;
+    const phone = pendingUser.phone;
+    const password = pendingUser.password;
     
-    if (friendsDB.list.length === 0) {
-        friendsBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">👋 Добавь друзей, чтобы общаться!</div>';
+    if (usersDB[phone] && usersDB[phone].password === password) {
+        user = { ...usersDB[phone], phone: phone };
+    } else if (!usersDB[phone]) {
+        user = {
+            id: Date.now().toString(),
+            name: "Бро_" + phone.slice(-4),
+            phone: phone,
+            password: password,
+            avatar: null,
+            status: "Кайфую"
+        };
+        usersDB[phone] = user;
+        localStorage.setItem("bro_users_db", JSON.stringify(usersDB));
     } else {
-        friendsBox.innerHTML = friendsDB.list.map(friend => `
-            <div class="friend-item">
-                <div class="friend-info">
-                    <div class="friend-avatar">${friend.name[0]}</div>
-                    <div>
-                        <div class="friend-name">${friend.name}</div>
-                        <div class="friend-status">${friend.online ? '🟢 В сети' : '⚫ Оффлайн'}</div>
-                    </div>
-                </div>
-                <div class="friend-actions">
-                    <button class="friend-btn" onclick="openChatWithFriend('${friend.name}')">💬 Чат</button>
-                    <button class="friend-btn remove" onclick="removeFriend('${friend.name}')">❌ Удалить</button>
-                </div>
-            </div>
-        `).join('');
-    }
-    
-    if (requestsBox) {
-        const incoming = friendsDB.requests.filter(r => r.to === user.name && r.status === 'pending');
-        if (incoming.length === 0) {
-            requestsBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">📭 Нет заявок в друзья</div>';
-        } else {
-            requestsBox.innerHTML = incoming.map(req => `
-                <div class="request-item">
-                    <span><b>${req.from}</b> хочет добавить тебя в друзья</span>
-                    <div style="display:flex; gap:8px;">
-                        <button class="friend-btn accept" onclick="acceptFriend('${req.from}')">✅ Принять</button>
-                        <button class="friend-btn decline" onclick="declineFriend('${req.from}')">❌ Отклонить</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-    }
-}
-
-function addFriend(name) {
-    if (friendsDB.list.some(f => f.name === name)) {
-        alert(`${name} уже в друзьях!`);
+        alert("Неверный пароль!");
         return;
     }
     
-    // Отправляем заявку
-    const request = { from: user.name, to: name, status: 'pending' };
-    friendsDB.requests.push(request);
-    localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
+    socket.emit('register_user', { name: user.name, phone: user.phone, id: user.id });
     
-    // Для другого пользователя нужно отправить через сервер
-    socket.emit('friend_request', { from: user.name, to: name });
-    alert(`Заявка отправлена ${name}`);
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-shell').classList.remove('hidden');
+    updateProfileUI();
+    renderUserLists();
+    renderAllFeeds();
 }
 
-function acceptFriend(name) {
-    friendsDB.list.push({ name: name, online: false });
-    friendsDB.requests = friendsDB.requests.filter(r => !(r.from === name && r.to === user.name));
-    localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
-    renderFriends();
-    alert(`${name} теперь твой друг!`);
-}
+// === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
+socket.on('update_user_list', (users) => {
+    renderUserListsFromServer(users);
+});
 
-function declineFriend(name) {
-    friendsDB.requests = friendsDB.requests.filter(r => !(r.from === name && r.to === user.name));
-    localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
-    renderFriends();
-}
-
-function removeFriend(name) {
-    friendsDB.list = friendsDB.list.filter(f => f.name !== name);
-    localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
-    renderFriends();
-    alert(`${name} удалён из друзей`);
-}
-
-function openChatWithFriend(name) {
-    openChat(name);
-}
-
-function filterFriends() {
-    const val = document.getElementById('friends-search')?.value.toLowerCase() || '';
-    const filtered = friendsDB.list.filter(f => f.name.toLowerCase().includes(val));
-    const friendsBox = document.getElementById('friends-list');
-    if (!friendsBox) return;
+function renderUserListsFromServer(usersList) {
+    const othersBox = document.getElementById('users-list');
+    if (!othersBox) return;
     
-    if (filtered.length === 0) {
-        friendsBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">👋 Друзья не найдены</div>';
-    } else {
-        friendsBox.innerHTML = filtered.map(friend => `
-            <div class="friend-item">
-                <div class="friend-info">
-                    <div class="friend-avatar">${friend.name[0]}</div>
-                    <div>
-                        <div class="friend-name">${friend.name}</div>
-                        <div class="friend-status">${friend.online ? '🟢 В сети' : '⚫ Оффлайн'}</div>
-                    </div>
-                </div>
-                <div class="friend-actions">
-                    <button class="friend-btn" onclick="openChatWithFriend('${friend.name}')">💬 Чат</button>
-                    <button class="friend-btn remove" onclick="removeFriend('${friend.name}')">❌ Удалить</button>
-                </div>
-            </div>
-        `).join('');
-    }
-}
-
-// === СТЕНА С ПОСТАМИ ===
-let wallPosts = JSON.parse(localStorage.getItem(`bro_wall_${user.phone}`)) || [];
-
-function postToWall() {
-    const text = document.getElementById('wall-text').value;
-    const mediaInput = document.getElementById('wall-media-input');
-    const file = mediaInput?.files[0];
-    
-    if (!text && !file) return;
-    
-    const newPost = {
-        id: Date.now(),
-        text: text,
-        media: file ? URL.createObjectURL(file) : null,
-        mediaType: file ? (file.type.startsWith('video') ? 'video' : 'image') : null,
-        likes: 0,
-        likedBy: [],
-        comments: [],
-        reposted: false,
-        time: new Date().toLocaleString()
-    };
-    
-    wallPosts.unshift(newPost);
-    localStorage.setItem(`bro_wall_${user.phone}`, JSON.stringify(wallPosts));
-    
-    document.getElementById('wall-text').value = '';
-    if (mediaInput) mediaInput.value = '';
-    
-    renderWall();
-}
-
-function renderWall() {
-    const wallBox = document.getElementById('my-wall-posts');
-    if (!wallBox) return;
-    
-    if (wallPosts.length === 0) {
-        wallBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">😎 Твоя стена пуста. Опубликуй что-нибудь!</div>';
-        return;
-    }
-    
-    wallBox.innerHTML = wallPosts.map(post => `
-        <div class="post" id="post-${post.id}">
-            <b style="color:#00ff41">@${user.name}</b>
-            <small style="color:#666; margin-left:10px;">${post.time}</small>
-            <p style="margin:10px 0;">${post.text}</p>
-            ${post.media ? (post.mediaType === 'video' ? `<video src="${post.media}" controls></video>` : `<img src="${post.media}">`) : ''}
-            <div class="post-actions">
-                <span class="${post.likedBy.includes(user.phone) ? 'liked' : ''}" onclick="likeWallPost(${post.id})">❤️ ${post.likes}</span>
-                <span onclick="toggleWallComments(${post.id})">💬 ${post.comments.length}</span>
-                <span onclick="repostWallPost(${post.id})">🔄 Репост</span>
-            </div>
-            <div class="comments-section" id="comments-${post.id}" style="display:none;">
-                ${post.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
-                <div class="comment-input">
-                    <input type="text" id="comment-input-${post.id}" placeholder="Написать комментарий...">
-                    <button onclick="addWallComment(${post.id})">→</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function likeWallPost(id) {
-    const post = wallPosts.find(p => p.id === id);
-    if (post) {
-        if (post.likedBy.includes(user.phone)) {
-            post.likes--;
-            post.likedBy = post.likedBy.filter(uid => uid !== user.phone);
-        } else {
-            post.likes++;
-            post.likedBy.push(user.phone);
-        }
-        localStorage.setItem(`bro_wall_${user.phone}`, JSON.stringify(wallPosts));
-        renderWall();
-    }
-}
-
-function toggleWallComments(id) {
-    const commentsDiv = document.getElementById(`comments-${id}`);
-    if (commentsDiv) {
-        commentsDiv.style.display = commentsDiv.style.display === 'none' ? 'block' : 'none';
-    }
-}
-
-function addWallComment(id) {
-    const input = document.getElementById(`comment-input-${id}`);
-    const text = input?.value.trim();
-    if (text) {
-        const post = wallPosts.find(p => p.id === id);
-        if (post) {
-            post.comments.push({ author: user.name, text: text });
-            localStorage.setItem(`bro_wall_${user.phone}`, JSON.stringify(wallPosts));
-            input.value = '';
-            renderWall();
-        }
-    }
-}
-
-function repostWallPost(id) {
-    const post = wallPosts.find(p => p.id === id);
-    if (post && !post.reposted) {
-        post.reposted = true;
-        localStorage.setItem(`bro_wall_${user.phone}`, JSON.stringify(wallPosts));
-        
-        // Добавляем в репосты
-        let reposts = JSON.parse(localStorage.getItem(`bro_reposts_${user.phone}`)) || [];
-        reposts.unshift({ ...post, repostedAt: new Date().toLocaleString() });
-        localStorage.setItem(`bro_reposts_${user.phone}`, JSON.stringify(reposts));
-        
-        renderReposts();
-        alert("✅ Пост добавлен в репосты!");
-    }
-}
-
-function renderReposts() {
-    const repostsBox = document.getElementById('my-reposts-list');
-    if (!repostsBox) return;
-    
-    let reposts = JSON.parse(localStorage.getItem(`bro_reposts_${user.phone}`)) || [];
-    
-    if (reposts.length === 0) {
-        repostsBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">🔄 Здесь будут твои репосты</div>';
-        return;
-    }
-    
-    repostsBox.innerHTML = reposts.map(post => `
-        <div class="post">
-            <b style="color:#00ff41">@${post.author}</b>
-            <small style="color:#666; margin-left:10px;">${post.time}</small>
-            <p style="margin:10px 0;">${post.text}</p>
-            ${post.media ? (post.mediaType === 'video' ? `<video src="${post.media}" controls></video>` : `<img src="${post.media}">`) : ''}
-            <div class="post-actions">
-                <span>❤️ ${post.likes}</span>
-                <span>💬 ${post.comments.length}</span>
-            </div>
-            <small style="color:#888;">Репостнуто: ${post.repostedAt || 'недавно'}</small>
-        </div>
-    `).join('');
-}
-
-// === ОБНОВЛЯЕМ showTab ДЛЯ НОВЫХ РАЗДЕЛОВ ===
-const originalShowTab = showTab;
-window.showTab = function(tab) {
-    originalShowTab(tab);
-    if (tab === 'friends') renderFriends();
-    if (tab === 'wall') renderWall();
-    if (tab === 'reposts') renderReposts();
-};
-
-// === ДОБАВЛЯЕМ КНОПКУ ДОБАВЛЕНИЯ В ДРУЗЬЯ В СПИСОК ПОЛЬЗОВАТЕЛЕЙ ===
-const originalRenderUsers = renderUsers;
-window.renderUsers = function(list) {
-    const box = document.getElementById('users-list');
-    if (!box) return;
-    
-    const currentUsers = list.filter(u => u.name !== user.name);
-    
+    const currentUsers = usersList.filter(u => u.name !== user.name);
     if (currentUsers.length === 0) {
-        box.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">🤷 Никого в сети</div>';
+        othersBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">🤷 Никого в сети</div>';
         return;
     }
     
-    box.innerHTML = currentUsers.map(u => `
-        <div class="chat-item" onclick="openChat('${u.name}')">
+    othersBox.innerHTML = currentUsers.map(u => `
+        <div class="chat-item" onclick="openPrivateChat('${u.name}')">
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <b>${u.name}</b>
                     <small style="color:#00ff41; display:block;">В сети</small>
                 </div>
-                ${!friendsDB.list.some(f => f.name === u.name) ? 
-                    `<button class="friend-btn add" onclick="event.stopPropagation(); addFriend('${u.name}')">➕ В друзья</button>` : 
-                    '<small style="color:#00ff41;">✓ Друг</small>'}
             </div>
         </div>
     `).join('');
-};
+}
+
+function renderUserLists() {
+    const othersBox = document.getElementById('users-list');
+    if (othersBox) {
+        othersBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">⏳ Загрузка...</div>';
+    }
+}
+
+// === ЧАТЫ ===
+function openPrivateChat(name) {
+    currentChatType = "private";
+    currentTargetChat = name;
+    document.getElementById('chat-with-name').innerText = name;
+    document.getElementById('chat-messages').innerHTML = '<div class="msg-bubble" style="background:#1a1a2a; text-align:center;">📱 Начало чата с ' + name + '</div>';
+    showTab('private-chat');
+    
+    setTimeout(() => {
+        const debtKey = `${user.phone}_${name}`;
+        const debt = debtsDB[debtKey] || 0;
+        if (debt > 0) {
+            appendMsg('text', `📊 [КИДАЛОВО]: ${name} должен тебе ${debt} руб.`, false);
+        }
+    }, 300);
+}
+
+function sendPrivateMsg() {
+    const input = document.getElementById('msg-input');
+    const val = input.value.trim();
+    if (!val) return;
+    
+    socket.emit('send_msg', {
+        author: user.name,
+        text: val,
+        type: 'text',
+        target: currentTargetChat
+    });
+    
+    appendMsg('text', val, true);
+    input.value = "";
+}
+
+function sendChatMedia(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('video') ? 'video' : 'image';
+    appendMsg(type, url, true);
+    event.target.value = "";
+}
+
+function appendMsg(type, content, isOwn, senderName = "Бро") {
+    const box = document.getElementById('chat-messages');
+    let html = '';
+    const isSystem = content.includes('[СИНХРОН]') || content.includes('[КИДАЛОВО]');
+    
+    if(type === 'text') html = `<p>${content}</p>`;
+    else if(type === 'image') html = `<img src="${content}">`;
+    else if(type === 'video') html = `<video src="${content}" controls></video>`;
+    
+    const bubble = `
+        <div class="msg-bubble" style="
+            align-self: ${isSystem ? 'center' : (isOwn ? 'flex-end' : 'flex-start')};
+            background: ${isSystem ? 'rgba(0,212,255,0.1)' : (isOwn ? '#00ff41' : '#222')};
+            color: ${isSystem ? '#00d4ff' : (isOwn ? '#000' : '#fff')};
+            ${isSystem ? 'border: 1px solid #00d4ff; font-size: 11px; text-align: center;' : ''}
+        ">
+            ${!isOwn && !isSystem ? `<small style="display:block;color:#00ff41">${senderName}</small>` : ''}
+            ${html}
+        </div>
+    `;
+    box.innerHTML += bubble;
+    box.scrollTop = box.scrollHeight;
+}
+
+socket.on('receive_msg', (data) => {
+    if (currentTargetChat === data.target || currentTargetChat === data.author) {
+        const isOwn = data.author === user.name;
+        appendMsg(data.type, data.text, isOwn, data.author);
+    }
+});
+
+// === КИДАЛОВО ===
+function openDebt() {
+    const amount = prompt("Сколько этот Бро задолжал?");
+    if(amount) {
+        appendMsg('text', `💸 [КИДАЛОВО]: Бро торчит мне ${amount} руб.`, true);
+    }
+}
+
+function toggleJointPlaylist() {
+    const btn = document.getElementById('joint-trigger');
+    const active = btn.classList.toggle('joint-active');
+    appendMsg('text', `🤝 [СИНХРОН]: Общий плейлист ${active ? 'ЗАПУЩЕН' : 'ОСТАНОВЛЕН'}!`, false);
+}
+
+// === ПОСТЫ ===
+function postToWall() {
+    const txt = document.getElementById('wall-text').value;
+    if(!txt) return;
+    const p = { id: Date.now(), author: user.name, text: txt, likes: 0, liked: false };
+    posts.unshift(p);
+    renderAllFeeds();
+    document.getElementById('wall-text').value = "";
+}
+
+function renderAllFeeds() {
+    const feedBox = document.getElementById('global-feed-posts');
+    const wallBox = document.getElementById('my-wall-posts');
+    const repostsBox = document.getElementById('my-reposts-list');
+    
+    if(feedBox) {
+        feedBox.innerHTML = posts.map(p => `
+            <div class="post">
+                <b style="color:#00ff41">@${p.author}</b>
+                <p style="margin:10px 0;">${p.text}</p>
+                <div class="post-actions">
+                    <span onclick="likePost(${p.id})" style="${p.liked ? 'color:#ff0055' : ''}">❤️ ${p.likes}</span>
+                    <span onclick="repostPost(${p.id})">🔄 Репост</span>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    if(wallBox) {
+        wallBox.innerHTML = posts.filter(p => p.author === user.name).map(p => `
+            <div class="post">
+                <p>${p.text}</p>
+            </div>
+        `).join('');
+    }
+}
+
+function likePost(id) {
+    const p = posts.find(x => x.id === id);
+    if(p) {
+        p.liked ? (p.likes--, p.liked=false) : (p.likes++, p.liked=true);
+        renderAllFeeds();
+    }
+}
+
+function repostPost(id) {
+    alert("✅ Репост добавлен!");
+}
+
+// === МУЗЫКА ===
+function saveMusicLink() {
+    let link = document.getElementById('sc-link-input').value;
+    if(link.includes("soundcloud.com")) {
+        let clean = link.split('?')[0];
+        document.getElementById('sc-player-container').innerHTML = `
+            <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" 
+            src="https://w.soundcloud.com/player/?url=${encodeURIComponent(clean)}&color=%23ff5500&auto_play=false&visual=true"></iframe>
+        `;
+    } else {
+        alert("❌ Вставь ссылку на SoundCloud!");
+    }
+}
+
+// === ПРОФИЛЬ ===
+function updateProfileUI() {
+    document.getElementById('user-name-display').innerText = user.name;
+    document.getElementById('user-status-display').innerText = user.status;
+}
+
+function openEditProfile() {
+    const n = prompt("Новый ник:", user.name);
+    const s = prompt("Твой статус:", user.status);
+    if(n && n.trim()) user.name = n.trim();
+    if(s && s.trim()) user.status = s.trim();
+    updateProfileUI();
+}
+
+function changeAvatar(event) {
+    const file = event.target.files[0];
+    if(file) {
+        user.avatar = URL.createObjectURL(file);
+        document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+    }
+}
+
+function orderKFC() {
+    window.open('https://rostics.ru/menu', '_blank');
+}
+
+// === НАВИГАЦИЯ ===
+function showTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li'));
+    
+    const target = document.getElementById(tab + '-window');
+    if(target) target.classList.remove('hidden');
+    
+    const li = document.getElementById('li-' + tab);
+    if(li) li.classList.add('active-li');
+    
+    const titles = { 'chats': 'Чаты', 'feed': 'Рекомендации', 'wall': 'Моя Стена', 'reposts': 'Репосты', 'music-tab': 'Музыка' };
+    document.getElementById('current-page-title').innerText = titles[tab] || 'БРО';
+}
