@@ -21,6 +21,9 @@ function savePosts() {
 // === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
 let tempPhone = "";
 
+// Админский номер — вход без пароля
+const ADMIN_PHONE = "79874047434";
+
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
     const isRu = /^(7|8)\d{10}$/.test(cleaned);
@@ -39,14 +42,31 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
-    // Проверяем, есть ли пользователь в базе
+    // === АДМИНСКИЙ ДОСТУП БЕЗ ПАРОЛЯ ===
+    if (tempPhone === ADMIN_PHONE) {
+        if (usersDB[tempPhone]) {
+            user = usersDB[tempPhone];
+        } else {
+            user = {
+                phone: tempPhone,
+                name: "Админ",
+                password: "",
+                avatar: null,
+                status: "Властелин БРО 👑"
+            };
+            usersDB[tempPhone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        }
+        completeAuth();
+        return;
+    }
+    
+    // === ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛИ ===
     if (usersDB[tempPhone]) {
-        // Есть аккаунт — просим пароль
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
         document.getElementById('auth-title').innerText = "Вход в БРО";
     } else {
-        // Новый пользователь — просим придумать пароль
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
         document.getElementById('auth-title').innerText = "Регистрация в БРО";
@@ -61,7 +81,6 @@ function handlePassSubmit() {
     }
     
     if (usersDB[tempPhone]) {
-        // Вход существующего пользователя
         if (usersDB[tempPhone].password === pass) {
             user = usersDB[tempPhone];
             completeAuth();
@@ -69,7 +88,6 @@ function handlePassSubmit() {
             alert("Неверный пароль!");
         }
     } else {
-        // Регистрация нового пользователя
         user = {
             phone: tempPhone,
             name: "Бро_" + tempPhone.slice(-4),
@@ -163,7 +181,7 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ПОСТЫ ===
+// === ПОСТЫ С ЛАЙКАМИ, КОММЕНТАРИЯМИ, РЕПОСТАМИ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
@@ -279,6 +297,8 @@ function repostPost(id) {
         savePosts();
         renderAll();
         alert("✅ Пост добавлен в репосты!");
+    } else if (post && post.repostedBy.includes(user.phone)) {
+        alert("⚠️ Ты уже репостнул этот пост!");
     }
 }
 
@@ -311,7 +331,7 @@ function openDebt() {
     }
 }
 
-// === СИНХРОН ===
+// === СИНХРОН (ОБЩИЙ ПЛЕЙЛИСТ) ===
 let syncActive = false;
 function toggleSync() {
     const btn = document.getElementById('joint-btn');
@@ -370,19 +390,35 @@ function changeAvatar(e) {
     }
 }
 
-function orderKFC() { window.open('https://rostics.ru/menu', '_blank'); }
+function orderKFC() { 
+    window.open('https://rostics.ru/menu', '_blank'); 
+}
 
 // === НАВИГАЦИЯ ===
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
     document.getElementById(tabId).classList.remove('hidden');
     document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li'));
-    const map = { 'chats-window': 'li-chats', 'feed-window': 'li-feed', 'wall-window': 'li-wall', 'reposts-window': 'li-reposts', 'music-window': 'li-music' };
+    const map = { 
+        'chats-window': 'li-chats', 
+        'feed-window': 'li-feed', 
+        'wall-window': 'li-wall', 
+        'reposts-window': 'li-reposts', 
+        'music-window': 'li-music' 
+    };
     const liId = map[tabId];
     if (liId) document.getElementById(liId).classList.add('active-li');
     
-    const titles = { 'chats-window': 'Чаты', 'feed-window': 'Лента', 'wall-window': 'Моя Стена', 'reposts-window': 'Репосты', 'music-window': 'Музыка' };
+    const titles = { 
+        'chats-window': 'Чаты', 
+        'feed-window': 'Лента', 
+        'wall-window': 'Моя Стена', 
+        'reposts-window': 'Репосты', 
+        'music-window': 'Музыка' 
+    };
     document.getElementById('page-title').innerText = titles[tabId] || 'БРО';
 }
 
-function previewMedia() { console.log('медиа выбрано'); }
+function previewMedia() { 
+    console.log('медиа выбрано'); 
+}
