@@ -1,37 +1,41 @@
 const socket = io('https://bro-mesenger-drippldd.amvera.io');
 
-let user = { name: "Бро", phone: "", status: "Кайфую", avatar: null };
+// === ДАННЫЕ ===
+let user = { name: "", phone: "", status: "На связи", avatar: null };
 let posts = [];
-let groups = [];
-let currentChatType = "private";
-let currentTargetChat = "";
-let debtsDB = JSON.parse(localStorage.getItem("bro_debts")) || {};
+let currentChat = "";
+let allUsers = [];
 let pendingUser = null;
-let usersDB = JSON.parse(localStorage.getItem("bro_users_db")) || {};
+let usersDB = JSON.parse(localStorage.getItem("bro_users")) || {};
 
-// === ВАЛИДАЦИЯ НОМЕРА ===
-function validatePhone(phone) {
-    const cleaned = phone.replace(/\D/g, '');
-    const isRu = /^(7|8|9)\d{10}$/.test(cleaned);
-    const isBy = /^375\d{9}$/.test(cleaned);
-    return isRu || isBy;
+// === ЗАГРУЗКА ПОСТОВ ===
+function loadPosts() {
+    const saved = localStorage.getItem(`bro_posts_${user.phone}`);
+    if (saved) posts = JSON.parse(saved);
+    else posts = [];
 }
 
+function savePosts() {
+    localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
+}
+
+// === АВТОРИЗАЦИЯ ===
 function handlePhoneSubmit() {
-    const ph = document.getElementById('reg-phone').value.trim();
-    if (!validatePhone(ph)) {
-        alert("Введите номер РФ (+7) или РБ (+375)");
+    let ph = document.getElementById('reg-phone').value.trim();
+    ph = ph.replace(/\D/g, '');
+    if (ph.length < 10) {
+        alert("Введите корректный номер");
         return;
     }
-    pendingUser = { phone: ph.replace(/\D/g, '') };
+    pendingUser = { phone: ph };
     document.getElementById('step-phone').classList.add('hidden');
     document.getElementById('step-pass').classList.remove('hidden');
 }
 
 function handlePassSubmit() {
     const pass = document.getElementById('reg-pass').value;
-    if (pass.length < 4) {
-        alert("Пароль минимум 4 символа");
+    if (pass.length < 3) {
+        alert("Пароль минимум 3 символа");
         return;
     }
     pendingUser.password = pass;
@@ -47,99 +51,72 @@ function verifyCode() {
     }
     
     const phone = pendingUser.phone;
-    const password = pendingUser.password;
+    const pass = pendingUser.password;
     
-    if (usersDB[phone] && usersDB[phone].password === password) {
-        user = { ...usersDB[phone], phone: phone };
+    if (usersDB[phone] && usersDB[phone].password === pass) {
+        user = usersDB[phone];
     } else if (!usersDB[phone]) {
         user = {
-            id: Date.now().toString(),
-            name: "Бро_" + phone.slice(-4),
             phone: phone,
-            password: password,
+            name: "Бро_" + phone.slice(-4),
+            password: pass,
             avatar: null,
-            status: "Кайфую"
+            status: "На связи"
         };
         usersDB[phone] = user;
-        localStorage.setItem("bro_users_db", JSON.stringify(usersDB));
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
     } else {
         alert("Неверный пароль!");
         return;
     }
     
-    socket.emit('register_user', { name: user.name, phone: user.phone, id: user.id });
+    socket.emit('register_user', { name: user.name, phone: user.phone });
     
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
-    updateProfileUI();
-    renderUserLists();
-    renderAllFeeds();
+    updateUI();
+    loadPosts();
+    renderAll();
 }
 
 // === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
-    renderUserListsFromServer(users);
+    allUsers = users;
+    renderUsers();
 });
 
-function renderUserListsFromServer(usersList) {
-    const othersBox = document.getElementById('users-list');
-    if (!othersBox) return;
-    
-    const currentUsers = usersList.filter(u => u.name !== user.name);
-    if (currentUsers.length === 0) {
-        othersBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">🤷 Никого в сети</div>';
+function renderUsers() {
+    const container = document.getElementById('users-list');
+    if (!container) return;
+    const online = allUsers.filter(u => u.name !== user.name);
+    if (online.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🤷 Никого в сети</div>';
         return;
     }
-    
-    othersBox.innerHTML = currentUsers.map(u => `
-        <div class="chat-item" onclick="openPrivateChat('${u.name}')">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <div>
-                    <b>${u.name}</b>
-                    <small style="color:#00ff41; display:block;">В сети</small>
-                </div>
-            </div>
+    container.innerHTML = online.map(u => `
+        <div class="user-item" onclick="openChat('${u.name}')">
+            <b>${u.name}</b>
+            <small style="color:#00ff41; display:block;">В сети</small>
         </div>
     `).join('');
 }
 
-function renderUserLists() {
-    const othersBox = document.getElementById('users-list');
-    if (othersBox) {
-        othersBox.innerHTML = '<div style="text-align:center; color:#555; padding:20px;">⏳ Загрузка...</div>';
-    }
+// === ЧАТ ===
+function openChat(name) {
+    currentChat = name;
+    document.getElementById('chat-name').innerText = name;
+    document.getElementById('chat-messages').innerHTML = '<div class="message system">📱 Чат с ' + name + '</div>';
+    showTab('chat-window');
 }
 
-// === ЧАТЫ ===
-function openPrivateChat(name) {
-    currentChatType = "private";
-    currentTargetChat = name;
-    document.getElementById('chat-with-name').innerText = name;
-    document.getElementById('chat-messages').innerHTML = '<div class="msg-bubble" style="background:#1a1a2a; text-align:center;">📱 Начало чата с ' + name + '</div>';
-    showTab('private-chat');
-    
-    setTimeout(() => {
-        const debtKey = `${user.phone}_${name}`;
-        const debt = debtsDB[debtKey] || 0;
-        if (debt > 0) {
-            appendMsg('text', `📊 [КИДАЛОВО]: ${name} должен тебе ${debt} руб.`, false);
-        }
-    }, 300);
-}
-
-function sendPrivateMsg() {
+function sendMessage() {
     const input = document.getElementById('msg-input');
-    const val = input.value.trim();
-    if (!val) return;
+    const text = input.value.trim();
+    if (!text || !currentChat) return;
     
-    socket.emit('send_msg', {
-        author: user.name,
-        text: val,
-        type: 'text',
-        target: currentTargetChat
-    });
-    
-    appendMsg('text', val, true);
+    const msg = { author: user.name, target: currentChat, text: text, type: 'text' };
+    socket.emit('send_msg', msg);
+    addMessage(msg, true);
     input.value = "";
 }
 
@@ -148,68 +125,38 @@ function sendChatMedia(event) {
     if (!file) return;
     const url = URL.createObjectURL(file);
     const type = file.type.startsWith('video') ? 'video' : 'image';
-    appendMsg(type, url, true);
-    event.target.value = "";
+    const msg = { author: user.name, target: currentChat, text: url, type: type };
+    socket.emit('send_msg', msg);
+    addMessage(msg, true);
 }
 
-function appendMsg(type, content, isOwn, senderName = "Бро") {
+function addMessage(data, isOwn) {
     const box = document.getElementById('chat-messages');
-    let html = '';
-    const isSystem = content.includes('[СИНХРОН]') || content.includes('[КИДАЛОВО]');
-    
-    if(type === 'text') html = `<p>${content}</p>`;
-    else if(type === 'image') html = `<img src="${content}">`;
-    else if(type === 'video') html = `<video src="${content}" controls></video>`;
-    
-    const bubble = `
-        <div class="msg-bubble" style="
-            align-self: ${isSystem ? 'center' : (isOwn ? 'flex-end' : 'flex-start')};
-            background: ${isSystem ? 'rgba(0,212,255,0.1)' : (isOwn ? '#00ff41' : '#222')};
-            color: ${isSystem ? '#00d4ff' : (isOwn ? '#000' : '#fff')};
-            ${isSystem ? 'border: 1px solid #00d4ff; font-size: 11px; text-align: center;' : ''}
-        ">
-            ${!isOwn && !isSystem ? `<small style="display:block;color:#00ff41">${senderName}</small>` : ''}
-            ${html}
-        </div>
-    `;
-    box.innerHTML += bubble;
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'my' : 'other'}`;
+    if (data.type === 'text') div.innerHTML = data.text;
+    else if (data.type === 'image') div.innerHTML = `<img src="${data.text}" style="max-width:200px; border-radius:10px;">`;
+    else if (data.type === 'video') div.innerHTML = `<video src="${data.text}" controls style="max-width:200px; border-radius:10px;"></video>`;
+    box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
 
 socket.on('receive_msg', (data) => {
-    if (currentTargetChat === data.target || currentTargetChat === data.author) {
-        const isOwn = data.author === user.name;
-        appendMsg(data.type, data.text, isOwn, data.author);
+    if (currentChat === data.author) {
+        addMessage(data, false);
     }
 });
 
-// === КИДАЛОВО ===
-function openDebt() {
-    const amount = prompt("Сколько этот Бро задолжал?");
-    if(amount) {
-        appendMsg('text', `💸 [КИДАЛОВО]: Бро торчит мне ${amount} руб.`, true);
-    }
-}
-
-function toggleJointPlaylist() {
-    const btn = document.getElementById('joint-trigger');
-    const active = btn.classList.toggle('joint-active');
-    appendMsg('text', `🤝 [СИНХРОН]: Общий плейлист ${active ? 'ЗАПУЩЕН' : 'ОСТАНОВЛЕН'}!`, false);
-}
-
-// === ПОСТЫ С ЛАЙКАМИ, КОММЕНТАМИ, РЕПОСТАМИ ===
-function postToWall() {
-    const txt = document.getElementById('wall-text').value;
-    const mediaInput = document.getElementById('wall-media-input');
-    const file = mediaInput ? mediaInput.files[0] : null;
-    
-    if(!txt && !file) return;
+// === ПОСТЫ ===
+function createPost() {
+    const text = document.getElementById('post-text').value;
+    const file = document.getElementById('post-media').files[0];
+    if (!text && !file) return;
     
     const newPost = {
         id: Date.now(),
         author: user.name,
-        authorId: user.phone,
-        text: txt,
+        text: text,
         media: file ? URL.createObjectURL(file) : null,
         mediaType: file ? (file.type.startsWith('video') ? 'video' : 'image') : null,
         likes: 0,
@@ -220,77 +167,62 @@ function postToWall() {
     };
     
     posts.unshift(newPost);
-    savePostsToLocal();
-    renderAllFeeds();
-    document.getElementById('wall-text').value = "";
-    if(mediaInput) mediaInput.value = "";
+    savePosts();
+    renderAll();
     
-    socket.emit('wall_post', { author: user.name, postId: newPost.id, text: txt });
+    document.getElementById('post-text').value = "";
+    document.getElementById('post-media').value = "";
+    
+    socket.emit('wall_post', { author: user.name, postId: newPost.id });
 }
 
-function savePostsToLocal() {
-    localStorage.setItem("bro_posts", JSON.stringify(posts));
-}
-
-function loadPostsFromLocal() {
-    const saved = localStorage.getItem("bro_posts");
-    if (saved) posts = JSON.parse(saved);
-}
-
-function renderAllFeeds() {
-    renderFeedPosts();
-    renderWallPosts();
+function renderAll() {
+    renderFeed();
+    renderWall();
     renderReposts();
 }
 
-function renderFeedPosts() {
-    const feedBox = document.getElementById('global-feed-posts');
-    if(!feedBox) return;
-    
-    if(posts.length === 0) {
-        feedBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>🚀 Лента пуста</div>";
+function renderFeed() {
+    const container = document.getElementById('feed-posts');
+    if (!container) return;
+    if (posts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🚀 Лента пуста</div>';
         return;
     }
-    
-    feedBox.innerHTML = posts.map(p => postHTML(p)).join('');
+    container.innerHTML = posts.map(p => postHTML(p)).join('');
 }
 
-function renderWallPosts() {
-    const wallBox = document.getElementById('my-wall-posts');
-    if(!wallBox) return;
-    
+function renderWall() {
+    const container = document.getElementById('wall-posts');
+    if (!container) return;
     const myPosts = posts.filter(p => p.author === user.name);
-    if(myPosts.length === 0) {
-        wallBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>😎 Твоя стена пуста</div>";
+    if (myPosts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>';
         return;
     }
-    
-    wallBox.innerHTML = myPosts.map(p => postHTML(p)).join('');
+    container.innerHTML = myPosts.map(p => postHTML(p)).join('');
 }
 
 function renderReposts() {
-    const repostsBox = document.getElementById('my-reposts-list');
-    if(!repostsBox) return;
-    
+    const container = document.getElementById('reposts-list');
+    if (!container) return;
     const myReposts = posts.filter(p => p.repostedBy && p.repostedBy.includes(user.phone));
-    if(myReposts.length === 0) {
-        repostsBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>🔄 Здесь будут твои репосты</div>";
+    if (myReposts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🔄 Здесь будут твои репосты</div>';
         return;
     }
-    
-    repostsBox.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
+    container.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
 }
 
 function postHTML(p, isRepost = false) {
     const isLiked = p.likedBy && p.likedBy.includes(user.phone);
     const isReposted = p.repostedBy && p.repostedBy.includes(user.phone);
-    const mediaHTML = p.media ? 
-        (p.mediaType === 'video' ? `<video src="${p.media}" controls></video>` : `<img src="${p.media}">`) : '';
+    const mediaHTML = p.media ? (p.mediaType === 'video' ? `<video src="${p.media}" controls></video>` : `<img src="${p.media}">`) : '';
     
     return `
         <div class="post" id="post-${p.id}">
             <b style="color:#00ff41">@${p.author}</b>
-            <small style="color:#666; margin-left:10px;">${p.time}</small>
+            <small style="color:#666;"> ${p.time}</small>
             <p style="margin:10px 0;">${p.text}</p>
             ${mediaHTML}
             <div class="post-actions">
@@ -298,12 +230,10 @@ function postHTML(p, isRepost = false) {
                 <span onclick="toggleComments(${p.id})">💬 ${p.comments.length}</span>
                 <span class="${isReposted ? 'liked' : ''}" onclick="repostPost(${p.id})">🔄 ${isRepost ? 'Репостнут' : 'Репост'}</span>
             </div>
-            <div class="comments-section" id="comments-${p.id}" style="display:none;">
-                <div id="comments-list-${p.id}">
-                    ${p.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
-                </div>
+            <div class="comments-section" id="comments-${p.id}">
+                ${p.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
                 <div class="comment-input">
-                    <input type="text" id="comment-input-${p.id}" placeholder="Написать комментарий...">
+                    <input type="text" id="comment-${p.id}" placeholder="Написать комментарий...">
                     <button onclick="addComment(${p.id})">→</button>
                 </div>
             </div>
@@ -313,179 +243,130 @@ function postHTML(p, isRepost = false) {
 
 function likePost(id) {
     const post = posts.find(p => p.id === id);
-    if(post) {
-        if(post.likedBy.includes(user.phone)) {
+    if (post) {
+        if (post.likedBy.includes(user.phone)) {
             post.likes--;
             post.likedBy = post.likedBy.filter(uid => uid !== user.phone);
         } else {
             post.likes++;
             post.likedBy.push(user.phone);
         }
-        savePostsToLocal();
-        renderAllFeeds();
-        
-        socket.emit('wall_like', {
-            postId: id,
-            author: post.author,
-            liker: user.name,
-            likes: post.likes
-        });
+        savePosts();
+        renderAll();
     }
 }
 
 function repostPost(id) {
     const post = posts.find(p => p.id === id);
-    if(post) {
-        if(!post.repostedBy.includes(user.phone)) {
-            post.repostedBy.push(user.phone);
-            savePostsToLocal();
-            renderAllFeeds();
-            alert("✅ Пост добавлен в репосты!");
-            
-            socket.emit('repost', {
-                postId: id,
-                author: post.author,
-                reposter: user.name
-            });
-        } else {
-            alert("⚠️ Ты уже репостнул этот пост!");
-        }
+    if (post && !post.repostedBy.includes(user.phone)) {
+        post.repostedBy.push(user.phone);
+        savePosts();
+        renderAll();
+        alert("✅ Пост добавлен в репосты!");
     }
 }
 
 function toggleComments(id) {
-    const commentsDiv = document.getElementById(`comments-${id}`);
-    if(commentsDiv) {
-        commentsDiv.style.display = commentsDiv.style.display === 'none' ? 'block' : 'none';
-    }
+    const div = document.getElementById(`comments-${id}`);
+    if (div) div.style.display = div.style.display === 'none' ? 'block' : 'none';
 }
 
 function addComment(id) {
-    const input = document.getElementById(`comment-input-${id}`);
+    const input = document.getElementById(`comment-${id}`);
     const text = input.value.trim();
-    if(text) {
+    if (text) {
         const post = posts.find(p => p.id === id);
-        if(post) {
-            post.comments.push({
-                author: user.name,
-                text: text,
-                time: new Date().toLocaleTimeString()
-            });
-            savePostsToLocal();
+        if (post) {
+            post.comments.push({ author: user.name, text: text });
+            savePosts();
+            renderAll();
             input.value = "";
-            renderAllFeeds();
-            
-            socket.emit('wall_comment', {
-                postId: id,
-                author: post.author,
-                commentAuthor: user.name,
-                comment: text,
-                commentsCount: post.comments.length
-            });
         }
     }
 }
 
-// === СЛУШАЕМ СОБЫТИЯ ОТ ДРУГИХ ПОЛЬЗОВАТЕЛЕЙ ===
-socket.on('new_wall_post', (data) => {
-    console.log(`📝 Новый пост от ${data.author}`);
-    loadPostsFromLocal();
-    renderAllFeeds();
-});
-
-socket.on('wall_like_update', (data) => {
-    const post = posts.find(p => p.id === data.postId);
-    if(post && post.author !== user.name) {
-        post.likes = data.likes;
-        savePostsToLocal();
-        renderAllFeeds();
+// === КИДАЛОВО ===
+function openDebt() {
+    const amount = prompt("💸 Сколько этот Бро должен?");
+    if (amount) {
+        const msg = { author: user.name, target: currentChat, text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`, type: 'text' };
+        socket.emit('send_msg', msg);
+        addMessage(msg, true);
     }
-});
+}
 
-socket.on('wall_comment_update', (data) => {
-    const post = posts.find(p => p.id === data.postId);
-    if(post && post.author !== user.name) {
-        // Добавляем комментарий от другого пользователя
-        if(!post.comments.find(c => c.author === data.commentAuthor && c.text === data.comment)) {
-            post.comments.push({
-                author: data.commentAuthor,
-                text: data.comment,
-                time: new Date().toLocaleTimeString()
-            });
-            savePostsToLocal();
-            renderAllFeeds();
-        }
+// === СИНХРОН ===
+let syncActive = false;
+function toggleSync() {
+    const btn = document.getElementById('joint-btn');
+    syncActive = !syncActive;
+    if (syncActive) {
+        btn.classList.add('joint-active');
+        addMessage({ author: "СИСТЕМА", text: "🤝 Синхрон включён!", type: 'text' }, false);
+    } else {
+        btn.classList.remove('joint-active');
+        addMessage({ author: "СИСТЕМА", text: "⏹️ Синхрон выключен", type: 'text' }, false);
     }
-});
-
-socket.on('repost_update', (data) => {
-    const post = posts.find(p => p.id === data.postId);
-    if(post && post.author !== user.name) {
-        if(!post.repostedBy.includes(data.reposter)) {
-            post.repostedBy.push(data.reposter);
-            savePostsToLocal();
-            renderAllFeeds();
-        }
-    }
-});
+}
 
 // === МУЗЫКА ===
-function saveMusicLink() {
-    let link = document.getElementById('sc-link-input').value;
-    if(link.includes("soundcloud.com")) {
-        let clean = link.split('?')[0];
-        document.getElementById('sc-player-container').innerHTML = `
-            <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" 
-            src="https://w.soundcloud.com/player/?url=${encodeURIComponent(clean)}&color=%23ff5500&auto_play=false&visual=true"></iframe>
+function playMusic() {
+    const link = document.getElementById('music-link').value;
+    if (link.includes('soundcloud.com')) {
+        document.getElementById('music-player').innerHTML = `
+            <iframe width="100%" height="200" frameborder="no" 
+            src="https://w.soundcloud.com/player/?url=${encodeURIComponent(link)}&color=%23ff5500&auto_play=true"></iframe>
         `;
     } else {
-        alert("❌ Вставь ссылку на SoundCloud!");
+        alert("Вставь ссылку на SoundCloud");
     }
 }
 
 // === ПРОФИЛЬ ===
-function updateProfileUI() {
+function updateUI() {
     document.getElementById('user-name-display').innerText = user.name;
     document.getElementById('user-status-display').innerText = user.status;
+    if (user.avatar) document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
 }
 
 function openEditProfile() {
     const n = prompt("Новый ник:", user.name);
-    const s = prompt("Твой статус:", user.status);
-    if(n && n.trim()) user.name = n.trim();
-    if(s && s.trim()) user.status = s.trim();
-    updateProfileUI();
+    const s = prompt("Статус:", user.status);
+    if (n) user.name = n;
+    if (s) user.status = s;
+    updateUI();
+    usersDB[user.phone] = user;
+    localStorage.setItem("bro_users", JSON.stringify(usersDB));
+    socket.emit('update_user', { phone: user.phone, name: user.name });
 }
 
-function changeAvatar(event) {
-    const file = event.target.files[0];
-    if(file) {
-        user.avatar = URL.createObjectURL(file);
-        document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+function changeAvatar(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            user.avatar = ev.target.result;
+            document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+            usersDB[user.phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        };
+        reader.readAsDataURL(file);
     }
 }
 
-function orderKFC() {
-    window.open('https://rostics.ru/menu', '_blank');
-}
+function orderKFC() { window.open('https://rostics.ru/menu', '_blank'); }
 
 // === НАВИГАЦИЯ ===
-function showTab(tab) {
+function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById(tabId).classList.remove('hidden');
     document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li'));
+    const map = { 'chats-window': 'li-chats', 'feed-window': 'li-feed', 'wall-window': 'li-wall', 'reposts-window': 'li-reposts', 'music-window': 'li-music' };
+    const liId = map[tabId];
+    if (liId) document.getElementById(liId).classList.add('active-li');
     
-    const target = document.getElementById(tab + '-window');
-    if(target) target.classList.remove('hidden');
-    
-    const li = document.getElementById('li-' + tab);
-    if(li) li.classList.add('active-li');
-    
-    const titles = { 'chats': 'Чаты', 'feed': 'Рекомендации', 'wall': 'Моя Стена', 'reposts': 'Репосты', 'music-tab': 'Музыка' };
-    document.getElementById('current-page-title').innerText = titles[tab] || 'БРО';
-    
-    if(tab === 'reposts') renderReposts();
+    const titles = { 'chats-window': 'Чаты', 'feed-window': 'Лента', 'wall-window': 'Моя Стена', 'reposts-window': 'Репосты', 'music-window': 'Музыка' };
+    document.getElementById('page-title').innerText = titles[tabId] || 'БРО';
 }
 
-// Загружаем посты при старте
-loadPostsFromLocal();
-
+function previewMedia() { console.log('медиа выбрано'); }
