@@ -1,93 +1,46 @@
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; height: 100vh; overflow: hidden; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { background: #000; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto; height: 100vh; overflow: hidden; }
 
-/* Общее */
 .hidden { display: none !important; }
-.modal { position: fixed; width: 100%; height: 100%; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.auth-card { background: #111; padding: 30px; border-radius: 20px; border: 1px solid #00ff41; text-align: center; width: 320px; }
-.auth-card input { width: 100%; padding: 12px; margin-bottom: 10px; background: #000; border: 1px solid #333; color: #fff; border-radius: 8px; }
-.auth-card button { width: 100%; padding: 12px; background: #00ff41; border: none; font-weight: bold; border-radius: 8px; cursor: pointer; }
 
-/* Сайдбар */
-.sidebar { width: 280px; background: #0a0a0a; border-right: 1px solid #222; padding: 20px; display: flex; flex-direction: column; }
-.side-menu li { padding: 12px; cursor: pointer; color: #888; font-size: 18px; font-weight: bold; list-style: none; margin-bottom: 5px; border-radius: 10px; transition: 0.2s; }
-.side-menu li:hover { background: #1a1a1a; color: #fff; }
-.active-li { background: #00ff41 !important; color: #000 !important; }
-.kfc-side-btn { margin-top: 20px; background: #e4002b; color: #fff; border: none; padding: 12px; border-radius: 12px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
-.kfc-side-btn:hover { transform: scale(1.02); background: #ff0022; }
+/* Вход */
+.modal { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.auth-card { background: #111; padding: 30px; border-radius: 25px; border: 1px solid #00ff41; width: 90%; max-width: 350px; text-align: center; }
+.auth-card input { width: 100%; padding: 15px; margin: 10px 0; background: #000; border: 1px solid #333; color: #fff; border-radius: 12px; font-size: 16px; }
+.auth-card button { width: 100%; padding: 15px; background: #00ff41; border: none; font-weight: bold; border-radius: 12px; cursor: pointer; }
 
-/* Приложение */
-.main-wrapper { display: flex; height: 100vh; }
-.app-container { flex-grow: 1; display: flex; flex-direction: column; background: #050505; }
-.tab-content { flex-grow: 1; overflow-y: auto; padding: 20px; }
-.section-title { font-size: 11px; color: #00ff41; margin: 15px 0 10px; letter-spacing: 1px; }
+/* Основная сетка */
+.main-wrapper { display: flex; height: 100vh; position: relative; }
+.sidebar { width: 280px; background: #0a0a0a; border-right: 1px solid #1a1a1a; padding: 20px; transition: 0.3s; }
+.app-container { flex-grow: 1; display: flex; flex-direction: column; background: #000; position: relative; }
 
-/* Профиль */
-.profile-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid #222; }
-.avatar { width: 60px; height: 60px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 30px; border: 2px solid #00ff41; cursor: pointer; }
-.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-.user-info b { font-size: 18px; display: block; }
-.user-info p { font-size: 11px; color: #888; margin: 5px 0; }
-.edit-btn { background: none; border: 1px solid #444; color: #888; padding: 4px 10px; border-radius: 12px; font-size: 10px; cursor: pointer; }
+/* Шапка */
+header { padding: 15px; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; }
+.burger { background: none; border: none; color: #00ff41; font-size: 24px; margin-right: 15px; display: none; }
 
 /* Чаты */
-.chat-item { background: #111; padding: 12px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
-.chat-item:hover { border-color: #00ff41; background: #1a1a1a; }
-.create-group-btn { width: 100%; background: #00d4ff; border: none; padding: 12px; border-radius: 10px; font-weight: bold; margin-bottom: 15px; cursor: pointer; color: #000; }
+.chat-item { background: #111; padding: 15px; border-radius: 15px; margin-bottom: 10px; cursor: pointer; border: 1px solid transparent; }
+.chat-item:active { background: #1a1a1a; border-color: #00ff41; }
 
-/* Окно чата */
-.chat-header-top { display: flex; align-items: center; gap: 15px; padding-bottom: 15px; border-bottom: 1px solid #222; margin-bottom: 15px; }
-.back-btn { background: none; border: none; color: #00ff41; font-size: 24px; cursor: pointer; }
-#chat-with-name { font-weight: bold; font-size: 18px; }
-.header-actions { margin-left: auto; display: flex; gap: 8px; }
-.debt-btn { background: #ffcc00; color: #000; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; }
-.joint-btn { background: #00d4ff; color: #000; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; transition: 0.3s; }
-.joint-active { background: #ff0055 !important; color: #fff !important; box-shadow: 0 0 10px #ff0055; animation: blink 1s infinite; }
-@keyframes blink { 50% { opacity: 0.7; } }
-
-.messages-container { height: calc(100vh - 250px); overflow-y: auto; display: flex; flex-direction: column; padding: 10px; gap: 8px; }
-.msg-bubble { padding: 10px 15px; border-radius: 18px; max-width: 75%; word-wrap: break-word; }
-.msg-bubble img, .msg-bubble video { max-width: 100%; border-radius: 10px; margin-top: 5px; }
+/* Сообщения */
+.messages-container { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+.msg-bubble { padding: 10px 15px; border-radius: 18px; max-width: 80%; position: relative; min-width: 80px; }
+.msg-info { font-size: 9px; opacity: 0.6; display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; }
 
 /* Панель ввода */
-.controls { background: #111; padding: 10px; border-radius: 20px; }
-.input-area { display: flex; align-items: center; gap: 10px; }
-.attach-btn { font-size: 20px; cursor: pointer; padding: 5px; }
-#msg-input { flex-grow: 1; background: none; border: none; color: #fff; outline: none; padding: 10px; font-size: 14px; }
-.send-btn { background: #00ff41; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-
-/* Посты */
-.wall-input-card { background: #111; padding: 20px; border-radius: 15px; border: 1px solid #222; margin-bottom: 20px; }
-#wall-text { width: 100%; height: 80px; background: none; border: none; color: #fff; font-size: 16px; outline: none; resize: none; }
-.wall-actions { display: flex; justify-content: space-between; margin-top: 10px; }
-.media-wall-btn { background: #222; padding: 8px 15px; border-radius: 10px; cursor: pointer; font-size: 14px; color: #888; }
-.wall-post-btn { background: #00ff41; color: #000; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-
-.post { background: #111; padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #222; }
-.post img, .post video { max-width: 100%; border-radius: 10px; margin-top: 10px; }
-.post-actions { display: flex; gap: 15px; margin-top: 10px; color: #888; font-size: 14px; }
-.post-actions span { cursor: pointer; transition: 0.2s; }
-.post-actions span:hover { color: #00ff41; }
-.liked { color: #ff0055 !important; }
-
-/* Комментарии */
-.comments-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #333; display: none; }
-.comment { font-size: 12px; color: #ccc; margin-bottom: 5px; padding: 4px 0; }
-.comment strong { color: #00ff41; }
-.comment-input { display: flex; gap: 8px; margin-top: 8px; }
-.comment-input input { flex: 1; background: #000; border: 1px solid #333; color: #fff; padding: 6px 10px; border-radius: 15px; outline: none; font-size: 12px; }
-.comment-input button { background: #00ff41; border: none; padding: 4px 12px; border-radius: 15px; cursor: pointer; font-weight: bold; }
+.controls { padding: 10px; background: #0a0a0a; }
+.input-area { display: flex; align-items: center; background: #1a1a1a; border-radius: 25px; padding: 5px 15px; gap: 10px; }
+#msg-input { flex-grow: 1; background: none; border: none; color: #fff; padding: 10px; font-size: 16px; outline: none; }
+.send-btn { background: #00ff41; border: none; width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
 /* Музыка */
-.sc-container { border: 2px solid #ff5500; border-radius: 20px; padding: 20px; background: #000; margin-bottom: 20px; }
-.sc-title { color: #ff5500; font-size: 28px; font-weight: 900; margin-bottom: 15px; }
-.music-input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-.music-input-group input { flex-grow: 1; padding: 12px; background: #111; border: 1px solid #333; color: #fff; border-radius: 10px; }
-.music-input-group button { background: #ff5500; color: #fff; border: none; padding: 0 20px; border-radius: 10px; font-weight: bold; cursor: pointer; }
-#sc-player-container { margin-top: 15px; }
+.music-box { padding: 20px; }
+.music-box input { width: 100%; padding: 12px; background: #111; border: 1px solid #333; color: #fff; border-radius: 10px; margin-bottom: 10px; }
+#player-frame { margin-top: 20px; border-radius: 15px; overflow: hidden; }
 
-/* Скролл */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #111; }
-::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
-::-webkit-scrollbar-thumb:hover { background: #00ff41; }
+/* Адаптив для телефонов */
+@media (max-width: 768px) {
+    .sidebar { position: absolute; left: -100%; height: 100%; z-index: 99; width: 250px; }
+    .sidebar.active { left: 0; }
+    .burger { display: block; }
+}
