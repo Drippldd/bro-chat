@@ -197,54 +197,237 @@ function toggleJointPlaylist() {
     appendMsg('text', `🤝 [СИНХРОН]: Общий плейлист ${active ? 'ЗАПУЩЕН' : 'ОСТАНОВЛЕН'}!`, false);
 }
 
-// === ПОСТЫ ===
+// === ПОСТЫ С ЛАЙКАМИ, КОММЕНТАМИ, РЕПОСТАМИ ===
 function postToWall() {
     const txt = document.getElementById('wall-text').value;
-    if(!txt) return;
-    const p = { id: Date.now(), author: user.name, text: txt, likes: 0, liked: false };
-    posts.unshift(p);
+    const mediaInput = document.getElementById('wall-media-input');
+    const file = mediaInput ? mediaInput.files[0] : null;
+    
+    if(!txt && !file) return;
+    
+    const newPost = {
+        id: Date.now(),
+        author: user.name,
+        authorId: user.phone,
+        text: txt,
+        media: file ? URL.createObjectURL(file) : null,
+        mediaType: file ? (file.type.startsWith('video') ? 'video' : 'image') : null,
+        likes: 0,
+        likedBy: [],
+        comments: [],
+        repostedBy: [],
+        time: new Date().toLocaleString()
+    };
+    
+    posts.unshift(newPost);
+    savePostsToLocal();
     renderAllFeeds();
     document.getElementById('wall-text').value = "";
+    if(mediaInput) mediaInput.value = "";
+    
+    socket.emit('wall_post', { author: user.name, postId: newPost.id, text: txt });
+}
+
+function savePostsToLocal() {
+    localStorage.setItem("bro_posts", JSON.stringify(posts));
+}
+
+function loadPostsFromLocal() {
+    const saved = localStorage.getItem("bro_posts");
+    if (saved) posts = JSON.parse(saved);
 }
 
 function renderAllFeeds() {
+    renderFeedPosts();
+    renderWallPosts();
+    renderReposts();
+}
+
+function renderFeedPosts() {
     const feedBox = document.getElementById('global-feed-posts');
-    const wallBox = document.getElementById('my-wall-posts');
-    const repostsBox = document.getElementById('my-reposts-list');
+    if(!feedBox) return;
     
-    if(feedBox) {
-        feedBox.innerHTML = posts.map(p => `
-            <div class="post">
-                <b style="color:#00ff41">@${p.author}</b>
-                <p style="margin:10px 0;">${p.text}</p>
-                <div class="post-actions">
-                    <span onclick="likePost(${p.id})" style="${p.liked ? 'color:#ff0055' : ''}">❤️ ${p.likes}</span>
-                    <span onclick="repostPost(${p.id})">🔄 Репост</span>
+    if(posts.length === 0) {
+        feedBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>🚀 Лента пуста</div>";
+        return;
+    }
+    
+    feedBox.innerHTML = posts.map(p => postHTML(p)).join('');
+}
+
+function renderWallPosts() {
+    const wallBox = document.getElementById('my-wall-posts');
+    if(!wallBox) return;
+    
+    const myPosts = posts.filter(p => p.author === user.name);
+    if(myPosts.length === 0) {
+        wallBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>😎 Твоя стена пуста</div>";
+        return;
+    }
+    
+    wallBox.innerHTML = myPosts.map(p => postHTML(p)).join('');
+}
+
+function renderReposts() {
+    const repostsBox = document.getElementById('my-reposts-list');
+    if(!repostsBox) return;
+    
+    const myReposts = posts.filter(p => p.repostedBy && p.repostedBy.includes(user.phone));
+    if(myReposts.length === 0) {
+        repostsBox.innerHTML = "<div style='text-align:center; color:#555; padding:20px;'>🔄 Здесь будут твои репосты</div>";
+        return;
+    }
+    
+    repostsBox.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
+}
+
+function postHTML(p, isRepost = false) {
+    const isLiked = p.likedBy && p.likedBy.includes(user.phone);
+    const isReposted = p.repostedBy && p.repostedBy.includes(user.phone);
+    const mediaHTML = p.media ? 
+        (p.mediaType === 'video' ? `<video src="${p.media}" controls></video>` : `<img src="${p.media}">`) : '';
+    
+    return `
+        <div class="post" id="post-${p.id}">
+            <b style="color:#00ff41">@${p.author}</b>
+            <small style="color:#666; margin-left:10px;">${p.time}</small>
+            <p style="margin:10px 0;">${p.text}</p>
+            ${mediaHTML}
+            <div class="post-actions">
+                <span class="${isLiked ? 'liked' : ''}" onclick="likePost(${p.id})">❤️ ${p.likes}</span>
+                <span onclick="toggleComments(${p.id})">💬 ${p.comments.length}</span>
+                <span class="${isReposted ? 'liked' : ''}" onclick="repostPost(${p.id})">🔄 ${isRepost ? 'Репостнут' : 'Репост'}</span>
+            </div>
+            <div class="comments-section" id="comments-${p.id}" style="display:none;">
+                <div id="comments-list-${p.id}">
+                    ${p.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
+                </div>
+                <div class="comment-input">
+                    <input type="text" id="comment-input-${p.id}" placeholder="Написать комментарий...">
+                    <button onclick="addComment(${p.id})">→</button>
                 </div>
             </div>
-        `).join('');
-    }
-    
-    if(wallBox) {
-        wallBox.innerHTML = posts.filter(p => p.author === user.name).map(p => `
-            <div class="post">
-                <p>${p.text}</p>
-            </div>
-        `).join('');
-    }
+        </div>
+    `;
 }
 
 function likePost(id) {
-    const p = posts.find(x => x.id === id);
-    if(p) {
-        p.liked ? (p.likes--, p.liked=false) : (p.likes++, p.liked=true);
+    const post = posts.find(p => p.id === id);
+    if(post) {
+        if(post.likedBy.includes(user.phone)) {
+            post.likes--;
+            post.likedBy = post.likedBy.filter(uid => uid !== user.phone);
+        } else {
+            post.likes++;
+            post.likedBy.push(user.phone);
+        }
+        savePostsToLocal();
         renderAllFeeds();
+        
+        socket.emit('wall_like', {
+            postId: id,
+            author: post.author,
+            liker: user.name,
+            likes: post.likes
+        });
     }
 }
 
 function repostPost(id) {
-    alert("✅ Репост добавлен!");
+    const post = posts.find(p => p.id === id);
+    if(post) {
+        if(!post.repostedBy.includes(user.phone)) {
+            post.repostedBy.push(user.phone);
+            savePostsToLocal();
+            renderAllFeeds();
+            alert("✅ Пост добавлен в репосты!");
+            
+            socket.emit('repost', {
+                postId: id,
+                author: post.author,
+                reposter: user.name
+            });
+        } else {
+            alert("⚠️ Ты уже репостнул этот пост!");
+        }
+    }
 }
+
+function toggleComments(id) {
+    const commentsDiv = document.getElementById(`comments-${id}`);
+    if(commentsDiv) {
+        commentsDiv.style.display = commentsDiv.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function addComment(id) {
+    const input = document.getElementById(`comment-input-${id}`);
+    const text = input.value.trim();
+    if(text) {
+        const post = posts.find(p => p.id === id);
+        if(post) {
+            post.comments.push({
+                author: user.name,
+                text: text,
+                time: new Date().toLocaleTimeString()
+            });
+            savePostsToLocal();
+            input.value = "";
+            renderAllFeeds();
+            
+            socket.emit('wall_comment', {
+                postId: id,
+                author: post.author,
+                commentAuthor: user.name,
+                comment: text,
+                commentsCount: post.comments.length
+            });
+        }
+    }
+}
+
+// === СЛУШАЕМ СОБЫТИЯ ОТ ДРУГИХ ПОЛЬЗОВАТЕЛЕЙ ===
+socket.on('new_wall_post', (data) => {
+    console.log(`📝 Новый пост от ${data.author}`);
+    loadPostsFromLocal();
+    renderAllFeeds();
+});
+
+socket.on('wall_like_update', (data) => {
+    const post = posts.find(p => p.id === data.postId);
+    if(post && post.author !== user.name) {
+        post.likes = data.likes;
+        savePostsToLocal();
+        renderAllFeeds();
+    }
+});
+
+socket.on('wall_comment_update', (data) => {
+    const post = posts.find(p => p.id === data.postId);
+    if(post && post.author !== user.name) {
+        // Добавляем комментарий от другого пользователя
+        if(!post.comments.find(c => c.author === data.commentAuthor && c.text === data.comment)) {
+            post.comments.push({
+                author: data.commentAuthor,
+                text: data.comment,
+                time: new Date().toLocaleTimeString()
+            });
+            savePostsToLocal();
+            renderAllFeeds();
+        }
+    }
+});
+
+socket.on('repost_update', (data) => {
+    const post = posts.find(p => p.id === data.postId);
+    if(post && post.author !== user.name) {
+        if(!post.repostedBy.includes(data.reposter)) {
+            post.repostedBy.push(data.reposter);
+            savePostsToLocal();
+            renderAllFeeds();
+        }
+    }
+});
 
 // === МУЗЫКА ===
 function saveMusicLink() {
@@ -299,4 +482,10 @@ function showTab(tab) {
     
     const titles = { 'chats': 'Чаты', 'feed': 'Рекомендации', 'wall': 'Моя Стена', 'reposts': 'Репосты', 'music-tab': 'Музыка' };
     document.getElementById('current-page-title').innerText = titles[tab] || 'БРО';
+    
+    if(tab === 'reposts') renderReposts();
 }
+
+// Загружаем посты при старте
+loadPostsFromLocal();
+
