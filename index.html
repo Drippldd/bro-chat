@@ -8,25 +8,22 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
+    <!-- ЭКРАН ВХОДА -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
-            <h2>Вход в БРО</h2>
+            <h2 id="auth-title">Вход в БРО</h2>
             <div id="step-phone">
                 <input type="tel" id="reg-phone" placeholder="+7 или +375...">
                 <button onclick="handlePhoneSubmit()">ДАЛЕЕ</button>
             </div>
             <div id="step-pass" class="hidden">
                 <input type="password" id="reg-pass" placeholder="Пароль">
-                <button onclick="handlePassSubmit()">ДАЛЕЕ</button>
-            </div>
-            <div id="step-code" class="hidden">
-                <p style="font-size: 12px;">Код: 1111</p>
-                <input type="text" id="reg-code" placeholder="0000">
-                <button onclick="verifyCode()">ПОДТВЕРДИТЬ</button>
+                <button onclick="handlePassSubmit()">ВОЙТИ</button>
             </div>
         </div>
     </div>
 
+    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
             <div class="profile-header">
@@ -40,11 +37,11 @@
             </div>
             <nav class="side-menu">
                 <ul>
-                    <li onclick="showTab('chats')" id="li-chats" class="active-li">💬 Чаты</li>
-                    <li onclick="showTab('feed')" id="li-feed">🚀 Лента</li>
-                    <li onclick="showTab('wall')" id="li-wall">🖼️ Моя Стена</li>
-                    <li onclick="showTab('reposts')" id="li-reposts">🔄 Репосты</li>
-                    <li onclick="showTab('music')" id="li-music">🎵 Музыка</li>
+                    <li onclick="showTab('chats-window')" id="li-chats" class="active-li">💬 Чаты</li>
+                    <li onclick="showTab('feed-window')" id="li-feed">🚀 Лента</li>
+                    <li onclick="showTab('wall-window')" id="li-wall">🖼️ Моя Стена</li>
+                    <li onclick="showTab('reposts-window')" id="li-reposts">🔄 Репосты</li>
+                    <li onclick="showTab('music-window')" id="li-music">🎵 Музыка</li>
                 </ul>
             </nav>
             <button class="kfc-btn" onclick="orderKFC()">🍗 KFC / Rostic's</button>
@@ -61,7 +58,7 @@
                 <!-- ЛИЧНЫЙ ЧАТ -->
                 <div id="chat-window" class="tab-content hidden">
                     <div class="chat-header">
-                        <button onclick="showTab('chats')" class="back-btn">←</button>
+                        <button onclick="showTab('chats-window')" class="back-btn">←</button>
                         <span id="chat-name">Чат</span>
                         <div class="chat-buttons">
                             <button class="joint-btn" id="joint-btn" onclick="toggleSync()">🤝 СИНХРОН</button>
@@ -103,7 +100,7 @@
                 <div id="music-window" class="tab-content hidden">
                     <div class="music-box">
                         <h2>SOUNDCLOUD</h2>
-                        <input type="text" id="music-link" placeholder="Вставь ссылку">
+                        <input type="text" id="music-link" placeholder="Вставь ссылку на SoundCloud">
                         <button onclick="playMusic()">ИГРАТЬ</button>
                         <div id="music-player"></div>
                     </div>
