@@ -44,6 +44,9 @@
             <nav class="side-menu">
                 <ul>
                     <li onclick="showTab('chats')" id="li-chats" class="active-li">💬 Чаты</li>
+                    <li onclick="showTab('friends')" id="li-friends">👥 Друзья</li>
+                    <li onclick="showTab('wall')" id="li-wall">🖼️ Моя Стена</li>
+                    <li onclick="showTab('reposts')" id="li-reposts">🔄 Репосты</li>
                     <li onclick="showTab('music-tab')" id="li-music-tab">🎵 Музыка</li>
                 </ul>
             </nav>
@@ -57,14 +60,16 @@
             </header>
 
             <main id="content-area">
+                <!-- ЧАТЫ -->
                 <div id="chats-window" class="tab-content">
                     <div class="search-box">
                         <input type="text" id="user-search" placeholder="Найти Бро..." oninput="filterUsers()">
                     </div>
-                    <div class="section-title">ЛЮДИ В СЕТИ</div>
+                    <div class="section-title">ВСЕ ПОЛЬЗОВАТЕЛИ</div>
                     <div id="users-list"></div>
                 </div>
 
+                <!-- ЛИЧНЫЙ ЧАТ -->
                 <div id="private-chat-window" class="tab-content hidden">
                     <div class="chat-header-top">
                         <button onclick="showTab('chats')" class="back-btn">⬅</button>
@@ -81,6 +86,37 @@
                     </div>
                 </div>
 
+                <!-- ДРУЗЬЯ -->
+                <div id="friends-window" class="tab-content hidden">
+                    <div class="search-box">
+                        <input type="text" id="friends-search" placeholder="Найти друга..." oninput="filterFriends()">
+                    </div>
+                    <div id="friends-list"></div>
+                    <div class="section-title" style="margin-top:20px;">ЗАЯВКИ В ДРУЗЬЯ</div>
+                    <div id="friend-requests"></div>
+                </div>
+
+                <!-- МОЯ СТЕНА -->
+                <div id="wall-window" class="tab-content hidden">
+                    <div class="wall-input-card">
+                        <textarea id="wall-text" placeholder="Что нового, Бро?..."></textarea>
+                        <div class="wall-actions">
+                            <label class="media-wall-btn">
+                                <input type="file" id="wall-media-input" hidden accept="image/*,video/*">
+                                📎 Фото/Видео
+                            </label>
+                            <button onclick="postToWall()" class="wall-post-btn">ОПУБЛИКОВАТЬ</button>
+                        </div>
+                    </div>
+                    <div id="my-wall-posts"></div>
+                </div>
+
+                <!-- РЕПОСТЫ -->
+                <div id="reposts-window" class="tab-content hidden">
+                    <div id="my-reposts-list"></div>
+                </div>
+
+                <!-- МУЗЫКА -->
                 <div id="music-tab-window" class="tab-content hidden">
                     <div class="music-box">
                         <input type="text" id="sc-link" placeholder="Вставь ссылку на трек">
