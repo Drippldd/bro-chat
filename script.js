@@ -5,7 +5,6 @@ let user = { name: "", phone: "", status: "На связи", avatar: null };
 let posts = [];
 let currentChat = "";
 let allUsers = [];
-let pendingUser = null;
 let usersDB = JSON.parse(localStorage.getItem("bro_users")) || {};
 
 // === ЗАГРУЗКА ПОСТОВ ===
@@ -19,65 +18,82 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
-// === АВТОРИЗАЦИЯ ===
+// === АВТОРИЗАЦИЯ (ИСПРАВЛЕНА) ===
+let tempPhone = "";
+
 function handlePhoneSubmit() {
     let ph = document.getElementById('reg-phone').value.trim();
     ph = ph.replace(/\D/g, '');
     if (ph.length < 10) {
-        alert("Введите корректный номер");
+        alert("Введите корректный номер (минимум 10 цифр)");
         return;
     }
-    pendingUser = { phone: ph };
-    document.getElementById('step-phone').classList.add('hidden');
-    document.getElementById('step-pass').classList.remove('hidden');
+    tempPhone = ph;
+    
+    // Проверяем, есть ли пользователь в базе
+    if (usersDB[ph]) {
+        // Есть аккаунт - просим пароль
+        document.getElementById('step-phone').classList.add('hidden');
+        document.getElementById('step-pass').classList.remove('hidden');
+        document.getElementById('auth-title').innerText = "Вход в БРО";
+    } else {
+        // Новый пользователь - сразу регистрируем без пароля
+        const newUser = {
+            phone: ph,
+            name: "Бро_" + ph.slice(-4),
+            password: "",
+            avatar: null,
+            status: "На связи"
+        };
+        usersDB[ph] = newUser;
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        
+        user = newUser;
+        socket.emit('register_user', { name: user.name, phone: user.phone });
+        
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-shell').classList.remove('hidden');
+        updateUI();
+        loadPosts();
+        renderAll();
+    }
 }
 
 function handlePassSubmit() {
     const pass = document.getElementById('reg-pass').value;
-    if (pass.length < 3) {
-        alert("Пароль минимум 3 символа");
-        return;
-    }
-    pendingUser.password = pass;
-    document.getElementById('step-pass').classList.add('hidden');
-    document.getElementById('step-code').classList.remove('hidden');
-}
-
-function verifyCode() {
-    const code = document.getElementById('reg-code').value;
-    if (code !== "1111") {
-        alert("Неверный код!");
-        return;
-    }
+    const existingUser = usersDB[tempPhone];
     
-    const phone = pendingUser.phone;
-    const pass = pendingUser.password;
-    
-    if (usersDB[phone] && usersDB[phone].password === pass) {
-        user = usersDB[phone];
-    } else if (!usersDB[phone]) {
-        user = {
-            phone: phone,
-            name: "Бро_" + phone.slice(-4),
-            password: pass,
-            avatar: null,
-            status: "На связи"
-        };
-        usersDB[phone] = user;
+    if (existingUser && existingUser.password === pass) {
+        // Пароль верный - вход
+        user = existingUser;
+        socket.emit('register_user', { name: user.name, phone: user.phone });
+        
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-shell').classList.remove('hidden');
+        updateUI();
+        loadPosts();
+        renderAll();
+    } else if (existingUser && existingUser.password === "") {
+        // Первый вход - сохраняем пароль
+        existingUser.password = pass;
+        usersDB[tempPhone] = existingUser;
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        
+        user = existingUser;
+        socket.emit('register_user', { name: user.name, phone: user.phone });
+        
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-shell').classList.remove('hidden');
+        updateUI();
+        loadPosts();
+        renderAll();
     } else {
         alert("Неверный пароль!");
-        return;
     }
-    
-    socket.emit('register_user', { name: user.name, phone: user.phone });
-    
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('app-shell').classList.remove('hidden');
-    updateUI();
-    loadPosts();
-    renderAll();
 }
+
+// Убираем step-code, он не нужен
+document.getElementById('step-code')?.remove();
 
 // === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
@@ -230,7 +246,7 @@ function postHTML(p, isRepost = false) {
                 <span onclick="toggleComments(${p.id})">💬 ${p.comments.length}</span>
                 <span class="${isReposted ? 'liked' : ''}" onclick="repostPost(${p.id})">🔄 ${isRepost ? 'Репостнут' : 'Репост'}</span>
             </div>
-            <div class="comments-section" id="comments-${p.id}">
+            <div class="comments-section" id="comments-${p.id}" style="display:none;">
                 ${p.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
                 <div class="comment-input">
                     <input type="text" id="comment-${p.id}" placeholder="Написать комментарий...">
@@ -370,3 +386,4 @@ function showTab(tabId) {
 }
 
 function previewMedia() { console.log('медиа выбрано'); }
+
