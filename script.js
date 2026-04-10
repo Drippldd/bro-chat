@@ -18,82 +18,41 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
-// === АВТОРИЗАЦИЯ (ИСПРАВЛЕНА) ===
-let tempPhone = "";
-
-function handlePhoneSubmit() {
+// === ПРОСТАЯ АВТОРИЗАЦИЯ (ТОЛЬКО НОМЕР) ===
+function login() {
     let ph = document.getElementById('reg-phone').value.trim();
     ph = ph.replace(/\D/g, '');
+    
     if (ph.length < 10) {
-        alert("Введите корректный номер (минимум 10 цифр)");
+        alert("Введите корректный номер (10+ цифр)");
         return;
     }
-    tempPhone = ph;
     
-    // Проверяем, есть ли пользователь в базе
+    // Проверяем или создаём пользователя
     if (usersDB[ph]) {
-        // Есть аккаунт - просим пароль
-        document.getElementById('step-phone').classList.add('hidden');
-        document.getElementById('step-pass').classList.remove('hidden');
-        document.getElementById('auth-title').innerText = "Вход в БРО";
+        user = usersDB[ph];
     } else {
-        // Новый пользователь - сразу регистрируем без пароля
-        const newUser = {
+        user = {
             phone: ph,
             name: "Бро_" + ph.slice(-4),
-            password: "",
             avatar: null,
             status: "На связи"
         };
-        usersDB[ph] = newUser;
+        usersDB[ph] = user;
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        
-        user = newUser;
-        socket.emit('register_user', { name: user.name, phone: user.phone });
-        
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-shell').classList.remove('hidden');
-        updateUI();
-        loadPosts();
-        renderAll();
     }
-}
-
-function handlePassSubmit() {
-    const pass = document.getElementById('reg-pass').value;
-    const existingUser = usersDB[tempPhone];
     
-    if (existingUser && existingUser.password === pass) {
-        // Пароль верный - вход
-        user = existingUser;
-        socket.emit('register_user', { name: user.name, phone: user.phone });
-        
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-shell').classList.remove('hidden');
-        updateUI();
-        loadPosts();
-        renderAll();
-    } else if (existingUser && existingUser.password === "") {
-        // Первый вход - сохраняем пароль
-        existingUser.password = pass;
-        usersDB[tempPhone] = existingUser;
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        
-        user = existingUser;
-        socket.emit('register_user', { name: user.name, phone: user.phone });
-        
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-shell').classList.remove('hidden');
-        updateUI();
-        loadPosts();
-        renderAll();
-    } else {
-        alert("Неверный пароль!");
-    }
+    // Регистрируем на сервере
+    socket.emit('register_user', { name: user.name, phone: user.phone });
+    
+    // Показываем основной интерфейс
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-shell').classList.remove('hidden');
+    
+    updateUI();
+    loadPosts();
+    renderAll();
 }
-
-// Убираем step-code, он не нужен
-document.getElementById('step-code')?.remove();
 
 // === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
@@ -386,4 +345,5 @@ function showTab(tabId) {
 }
 
 function previewMedia() { console.log('медиа выбрано'); }
+
 
