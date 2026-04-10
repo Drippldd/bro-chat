@@ -1,11 +1,13 @@
 const socket = io('https://bro-mesenger-drippldd.amvera.io');
 
+// === ДАННЫЕ ===
 let user = { name: "", phone: "", status: "На связи", avatar: null };
 let posts = [];
 let currentChat = "";
 let allUsers = [];
 let usersDB = JSON.parse(localStorage.getItem("bro_users")) || {};
 
+// === ЗАГРУЗКА ПОСТОВ ===
 function loadPosts() {
     const saved = localStorage.getItem(`bro_posts_${user.phone}`);
     if (saved) posts = JSON.parse(saved);
@@ -16,6 +18,7 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
+// === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
 let tempPhone = "";
 
 function validatePhone(phone) {
@@ -36,11 +39,14 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
+    // Проверяем, есть ли пользователь в базе
     if (usersDB[tempPhone]) {
+        // Есть аккаунт — просим пароль
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
         document.getElementById('auth-title').innerText = "Вход в БРО";
     } else {
+        // Новый пользователь — просим придумать пароль
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
         document.getElementById('auth-title').innerText = "Регистрация в БРО";
@@ -55,6 +61,7 @@ function handlePassSubmit() {
     }
     
     if (usersDB[tempPhone]) {
+        // Вход существующего пользователя
         if (usersDB[tempPhone].password === pass) {
             user = usersDB[tempPhone];
             completeAuth();
@@ -62,6 +69,7 @@ function handlePassSubmit() {
             alert("Неверный пароль!");
         }
     } else {
+        // Регистрация нового пользователя
         user = {
             phone: tempPhone,
             name: "Бро_" + tempPhone.slice(-4),
@@ -84,8 +92,10 @@ function completeAuth() {
     updateUI();
     loadPosts();
     renderAll();
+    renderUsers();
 }
 
+// === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
     allUsers = users;
     renderUsers();
@@ -107,6 +117,7 @@ function renderUsers() {
     `).join('');
 }
 
+// === ЧАТ ===
 function openChat(name) {
     currentChat = name;
     document.getElementById('chat-name').innerText = name;
@@ -152,6 +163,7 @@ socket.on('receive_msg', (data) => {
     }
 });
 
+// === ПОСТЫ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
@@ -176,6 +188,8 @@ function createPost() {
     
     document.getElementById('post-text').value = "";
     document.getElementById('post-media').value = "";
+    
+    socket.emit('wall_post', { author: user.name, postId: newPost.id });
 }
 
 function renderAll() {
@@ -287,6 +301,7 @@ function addComment(id) {
     }
 }
 
+// === КИДАЛОВО ===
 function openDebt() {
     const amount = prompt("💸 Сколько этот Бро должен?");
     if (amount) {
@@ -296,6 +311,7 @@ function openDebt() {
     }
 }
 
+// === СИНХРОН ===
 let syncActive = false;
 function toggleSync() {
     const btn = document.getElementById('joint-btn');
@@ -309,6 +325,7 @@ function toggleSync() {
     }
 }
 
+// === МУЗЫКА ===
 function playMusic() {
     const link = document.getElementById('music-link').value;
     if (link.includes('soundcloud.com')) {
@@ -321,6 +338,7 @@ function playMusic() {
     }
 }
 
+// === ПРОФИЛЬ ===
 function updateUI() {
     document.getElementById('user-name-display').innerText = user.name;
     document.getElementById('user-status-display').innerText = user.status;
@@ -354,6 +372,7 @@ function changeAvatar(e) {
 
 function orderKFC() { window.open('https://rostics.ru/menu', '_blank'); }
 
+// === НАВИГАЦИЯ ===
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
     document.getElementById(tabId).classList.remove('hidden');
@@ -366,4 +385,4 @@ function showTab(tabId) {
     document.getElementById('page-title').innerText = titles[tabId] || 'БРО';
 }
 
-function previewMedia() {}
+function previewMedia() { console.log('медиа выбрано'); }
