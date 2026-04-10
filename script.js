@@ -49,10 +49,10 @@ function handlePhoneSubmit() {
         } else {
             user = {
                 phone: tempPhone,
-                name: "Админ",
+                name: "DRIPPLDD",
                 password: "",
                 avatar: null,
-                status: "Властелин БРО 👑"
+                status: "HOOD RICH"
             };
             usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
