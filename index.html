@@ -8,30 +8,20 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА С ПОЛНОЙ РЕГИСТРАЦИЕЙ -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
             <h2 id="auth-title">Вход в БРО</h2>
-            
             <div id="step-phone">
                 <input type="tel" id="reg-phone" placeholder="+7 или +375...">
                 <button onclick="handlePhoneSubmit()">ДАЛЕЕ</button>
             </div>
-
             <div id="step-pass" class="hidden">
                 <input type="password" id="reg-pass" placeholder="Пароль">
-                <button onclick="handlePassSubmit()">ДАЛЕЕ</button>
-            </div>
-
-            <div id="step-code" class="hidden">
-                <p style="font-size: 12px; margin-bottom: 10px;">Код: 1111</p>
-                <input type="text" id="reg-code" placeholder="0000">
-                <button onclick="verifyCode()">ПОДТВЕРДИТЬ</button>
+                <button onclick="handlePassSubmit()">ВОЙТИ</button>
             </div>
         </div>
     </div>
 
-    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ (БЕЗ ИЗМЕНЕНИЙ) -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
             <div class="profile-header">
