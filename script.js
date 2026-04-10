@@ -15,13 +15,11 @@ function loadPosts() {
 }
 
 function savePosts() {
-    localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
+    localStorage.setItem(`bro_posts_user.phone}`, JSON.stringify(posts));
 }
 
 // === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
 let tempPhone = "";
-
-// Админский номер — вход без пароля
 const ADMIN_PHONE = "79874047434";
 
 function validatePhone(phone) {
@@ -42,17 +40,16 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
-    // === АДМИНСКИЙ ДОСТУП БЕЗ ПАРОЛЯ ===
     if (tempPhone === ADMIN_PHONE) {
         if (usersDB[tempPhone]) {
             user = usersDB[tempPhone];
         } else {
             user = {
                 phone: tempPhone,
-                name: "DRIPPLDD",
+                name: "Админ",
                 password: "",
                 avatar: null,
-                status: "HOOD RICH"
+                status: "Властелин БРО 👑"
             };
             usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
@@ -61,7 +58,6 @@ function handlePhoneSubmit() {
         return;
     }
     
-    // === ОБЫЧНЫЕ ПОЛЬЗОВАТЕЛИ ===
     if (usersDB[tempPhone]) {
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
@@ -135,6 +131,49 @@ function renderUsers() {
     `).join('');
 }
 
+// === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
+function searchUsers() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('search-results');
+    const usersList = document.getElementById('users-list');
+    
+    if (query === "") {
+        resultsContainer.classList.add('hidden');
+        usersList.classList.remove('hidden');
+        return;
+    }
+    
+    const allRegisteredUsers = Object.values(usersDB);
+    const found = allRegisteredUsers.filter(u => 
+        u.phone.includes(query) || 
+        u.name.toLowerCase().includes(query)
+    ).filter(u => u.phone !== user.phone);
+    
+    if (found.length === 0) {
+        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никого не найдено</div>';
+        resultsContainer.classList.remove('hidden');
+        usersList.classList.add('hidden');
+        return;
+    }
+    
+    resultsContainer.innerHTML = found.map(u => `
+        <div class="search-result-item" onclick="openChatFromSearch('${u.name}')">
+            <div class="search-result-name">${u.name}</div>
+            <div class="search-result-phone">📞 ${u.phone}</div>
+        </div>
+    `).join('');
+    
+    resultsContainer.classList.remove('hidden');
+    usersList.classList.add('hidden');
+}
+
+function openChatFromSearch(name) {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-results').classList.add('hidden');
+    document.getElementById('users-list').classList.remove('hidden');
+    openChat(name);
+}
+
 // === ЧАТ ===
 function openChat(name) {
     currentChat = name;
@@ -181,7 +220,7 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ПОСТЫ С ЛАЙКАМИ, КОММЕНТАРИЯМИ, РЕПОСТАМИ ===
+// === ПОСТЫ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
@@ -297,8 +336,6 @@ function repostPost(id) {
         savePosts();
         renderAll();
         alert("✅ Пост добавлен в репосты!");
-    } else if (post && post.repostedBy.includes(user.phone)) {
-        alert("⚠️ Ты уже репостнул этот пост!");
     }
 }
 
@@ -331,7 +368,7 @@ function openDebt() {
     }
 }
 
-// === СИНХРОН (ОБЩИЙ ПЛЕЙЛИСТ) ===
+// === СИНХРОН ===
 let syncActive = false;
 function toggleSync() {
     const btn = document.getElementById('joint-btn');
