@@ -18,34 +18,83 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
-// === ПРОСТАЯ АВТОРИЗАЦИЯ (ТОЛЬКО НОМЕР) ===
-function login() {
-    let ph = document.getElementById('reg-phone').value.trim();
-    ph = ph.replace(/\D/g, '');
+// === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
+let tempPhone = "";
+let tempPass = "";
+
+function validatePhone(phone) {
+    const cleaned = phone.replace(/\D/g, '');
+    const isRu = /^(7|8)\d{10}$/.test(cleaned);
+    const isBy = /^375\d{9}$/.test(cleaned);
+    return { valid: isRu || isBy, cleaned: cleaned };
+}
+
+function handlePhoneSubmit() {
+    const ph = document.getElementById('reg-phone').value.trim();
+    const validation = validatePhone(ph);
     
-    if (ph.length < 10) {
-        alert("Введите корректный номер (10+ цифр)");
+    if (!validation.valid) {
+        alert("Введите номер РФ (+7) или РБ (+375)");
         return;
     }
     
-    // Проверяем или создаём пользователя
-    if (usersDB[ph]) {
-        user = usersDB[ph];
-    } else {
-        user = {
-            phone: ph,
-            name: "Бро_" + ph.slice(-4),
-            avatar: null,
-            status: "На связи"
-        };
-        usersDB[ph] = user;
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+    tempPhone = validation.cleaned;
+    document.getElementById('step-phone').classList.add('hidden');
+    document.getElementById('step-pass').classList.remove('hidden');
+    document.getElementById('auth-title').innerText = "Вход в БРО";
+}
+
+function handlePassSubmit() {
+    const pass = document.getElementById('reg-pass').value;
+    if (pass.length < 3) {
+        alert("Пароль минимум 3 символа");
+        return;
     }
     
-    // Регистрируем на сервере
+    tempPass = pass;
+    
+    // Проверяем, есть ли пользователь в базе
+    if (usersDB[tempPhone]) {
+        // Пользователь существует — проверяем пароль
+        if (usersDB[tempPhone].password === tempPass) {
+            // Вход успешен
+            user = usersDB[tempPhone];
+            completeAuth();
+        } else {
+            alert("Неверный пароль!");
+        }
+    } else {
+        // Новый пользователь — отправляем код
+        document.getElementById('step-pass').classList.add('hidden');
+        document.getElementById('step-code').classList.remove('hidden');
+        console.log("🔐 Код подтверждения: 1111");
+    }
+}
+
+function verifyCode() {
+    const code = document.getElementById('reg-code').value;
+    if (code !== "1111") {
+        alert("Неверный код!");
+        return;
+    }
+    
+    // Создаём нового пользователя
+    user = {
+        phone: tempPhone,
+        name: "Бро_" + tempPhone.slice(-4),
+        password: tempPass,
+        avatar: null,
+        status: "На связи"
+    };
+    usersDB[tempPhone] = user;
+    localStorage.setItem("bro_users", JSON.stringify(usersDB));
+    
+    completeAuth();
+}
+
+function completeAuth() {
     socket.emit('register_user', { name: user.name, phone: user.phone });
     
-    // Показываем основной интерфейс
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
     
