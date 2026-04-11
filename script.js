@@ -6,6 +6,16 @@ let posts = [];
 let currentChat = "";
 let allUsers = [];
 let usersDB = JSON.parse(localStorage.getItem("bro_users")) || {};
+let messagesDB = JSON.parse(localStorage.getItem("bro_messages")) || {};
+
+// === СОХРАНЕНИЕ СООБЩЕНИЙ ===
+function saveMessages() {
+    localStorage.setItem("bro_messages", JSON.stringify(messagesDB));
+}
+
+function getChatKey(user1, user2) {
+    return [user1, user2].sort().join('_');
+}
 
 // === ЗАГРУЗКА ПОСТОВ ===
 function loadPosts() {
@@ -15,7 +25,7 @@ function loadPosts() {
 }
 
 function savePosts() {
-    localStorage.setItem(`bro_posts_user.phone}`, JSON.stringify(posts));
+    localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
 // === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
@@ -107,6 +117,32 @@ function completeAuth() {
     loadPosts();
     renderAll();
     renderUsers();
+    loadChatHistory();
+}
+
+// === ЗАГРУЗКА ИСТОРИИ ЧАТОВ ===
+function loadChatHistory() {
+    const chatKey = getChatKey(user.phone, currentChat);
+    const messages = messagesDB[chatKey] || [];
+    const container = document.getElementById('chat-messages');
+    if (container && messages.length > 0) {
+        container.innerHTML = '';
+        messages.forEach(msg => {
+            const isOwn = msg.sender === user.phone;
+            addMessageToUI(msg, isOwn);
+        });
+    }
+}
+
+function addMessageToUI(data, isOwn) {
+    const box = document.getElementById('chat-messages');
+    const div = document.createElement('div');
+    div.className = `message ${isOwn ? 'my' : 'other'}`;
+    if (data.type === 'text') div.innerHTML = data.text;
+    else if (data.type === 'image') div.innerHTML = `<img src="${data.text}" style="max-width:200px; border-radius:10px;">`;
+    else if (data.type === 'video') div.innerHTML = `<video src="${data.text}" controls style="max-width:200px; border-radius:10px;"></video>`;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
 }
 
 // === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
@@ -131,7 +167,7 @@ function renderUsers() {
     `).join('');
 }
 
-// === ПОИСК ПОЛЬЗОВАТЕЛЕЙ ===
+// === ПОИСК ПО ВСЕМ ЗАРЕГИСТРИРОВАННЫМ ПОЛЬЗОВАТЕЛЯМ ===
 function searchUsers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('search-results');
@@ -143,14 +179,16 @@ function searchUsers() {
         return;
     }
     
+    // Ищем по всем пользователям из localStorage (все, кто когда-либо регистрировался)
     const allRegisteredUsers = Object.values(usersDB);
+    
     const found = allRegisteredUsers.filter(u => 
         u.phone.includes(query) || 
         u.name.toLowerCase().includes(query)
     ).filter(u => u.phone !== user.phone);
     
     if (found.length === 0) {
-        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никого не найдено</div>';
+        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никого не найдено. Возможно, друг ещё не зарегистрировался.</div>';
         resultsContainer.classList.remove('hidden');
         usersList.classList.add('hidden');
         return;
@@ -160,6 +198,7 @@ function searchUsers() {
         <div class="search-result-item" onclick="openChatFromSearch('${u.name}')">
             <div class="search-result-name">${u.name}</div>
             <div class="search-result-phone">📞 ${u.phone}</div>
+            <div style="font-size: 10px; color: #888;">${u.status || "На связи"}</div>
         </div>
     `).join('');
     
@@ -174,11 +213,23 @@ function openChatFromSearch(name) {
     openChat(name);
 }
 
-// === ЧАТ ===
+// === ЧАТ С СОХРАНЕНИЕМ В localStorage ===
 function openChat(name) {
     currentChat = name;
     document.getElementById('chat-name').innerText = name;
-    document.getElementById('chat-messages').innerHTML = '<div class="message system">📱 Чат с ' + name + '</div>';
+    
+    // Загружаем историю сообщений
+    const chatKey = getChatKey(user.phone, name);
+    const messages = messagesDB[chatKey] || [];
+    
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '<div class="message system">📱 Чат с ' + name + '</div>';
+    
+    messages.forEach(msg => {
+        const isOwn = msg.sender === user.phone;
+        addMessageToUI(msg, isOwn);
+    });
+    
     showTab('chat-window');
 }
 
@@ -187,9 +238,23 @@ function sendMessage() {
     const text = input.value.trim();
     if (!text || !currentChat) return;
     
+    const chatKey = getChatKey(user.phone, currentChat);
+    if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+    
+    const newMsg = {
+        sender: user.phone,
+        senderName: user.name,
+        text: text,
+        type: 'text',
+        time: new Date().toLocaleTimeString()
+    };
+    
+    messagesDB[chatKey].push(newMsg);
+    saveMessages();
+    
     const msg = { author: user.name, target: currentChat, text: text, type: 'text' };
     socket.emit('send_msg', msg);
-    addMessage(msg, true);
+    addMessageToUI(newMsg, true);
     input.value = "";
 }
 
@@ -198,12 +263,27 @@ function sendChatMedia(event) {
     if (!file) return;
     const url = URL.createObjectURL(file);
     const type = file.type.startsWith('video') ? 'video' : 'image';
+    
+    const chatKey = getChatKey(user.phone, currentChat);
+    if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+    
+    const newMsg = {
+        sender: user.phone,
+        senderName: user.name,
+        text: url,
+        type: type,
+        time: new Date().toLocaleTimeString()
+    };
+    
+    messagesDB[chatKey].push(newMsg);
+    saveMessages();
+    
     const msg = { author: user.name, target: currentChat, text: url, type: type };
     socket.emit('send_msg', msg);
-    addMessage(msg, true);
+    addMessageToUI(newMsg, true);
 }
 
-function addMessage(data, isOwn) {
+function addMessageToUI(data, isOwn) {
     const box = document.getElementById('chat-messages');
     const div = document.createElement('div');
     div.className = `message ${isOwn ? 'my' : 'other'}`;
@@ -216,7 +296,20 @@ function addMessage(data, isOwn) {
 
 socket.on('receive_msg', (data) => {
     if (currentChat === data.author) {
-        addMessage(data, false);
+        const chatKey = getChatKey(user.phone, data.author);
+        if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+        
+        const newMsg = {
+            sender: data.author,
+            senderName: data.author,
+            text: data.text,
+            type: data.type,
+            time: new Date().toLocaleTimeString()
+        };
+        
+        messagesDB[chatKey].push(newMsg);
+        saveMessages();
+        addMessageToUI(newMsg, false);
     }
 });
 
@@ -362,9 +455,23 @@ function addComment(id) {
 function openDebt() {
     const amount = prompt("💸 Сколько этот Бро должен?");
     if (amount) {
+        const chatKey = getChatKey(user.phone, currentChat);
+        if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+        
+        const newMsg = {
+            sender: user.phone,
+            senderName: user.name,
+            text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`,
+            type: 'text',
+            time: new Date().toLocaleTimeString()
+        };
+        
+        messagesDB[chatKey].push(newMsg);
+        saveMessages();
+        
         const msg = { author: user.name, target: currentChat, text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`, type: 'text' };
         socket.emit('send_msg', msg);
-        addMessage(msg, true);
+        addMessageToUI(newMsg, true);
     }
 }
 
@@ -375,10 +482,10 @@ function toggleSync() {
     syncActive = !syncActive;
     if (syncActive) {
         btn.classList.add('joint-active');
-        addMessage({ author: "СИСТЕМА", text: "🤝 Синхрон включён!", type: 'text' }, false);
+        addMessageToUI({ author: "СИСТЕМА", text: "🤝 Синхрон включён!", type: 'text' }, false);
     } else {
         btn.classList.remove('joint-active');
-        addMessage({ author: "СИСТЕМА", text: "⏹️ Синхрон выключен", type: 'text' }, false);
+        addMessageToUI({ author: "СИСТЕМА", text: "⏹️ Синхрон выключен", type: 'text' }, false);
     }
 }
 
