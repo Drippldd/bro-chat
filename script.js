@@ -56,10 +56,10 @@ function handlePhoneSubmit() {
         } else {
             user = {
                 phone: tempPhone,
-                name: "Админ",
+                name: "DRIPLDD",
                 password: "",
                 avatar: null,
-                status: "Властелин БРО 👑"
+                status: "HOOD RICH"
             };
             usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
@@ -179,8 +179,19 @@ function searchUsers() {
         return;
     }
     
-    const allRegisteredUsers = Object.values(usersDB);
+    // Получаем всех пользователей из localStorage (все, кто когда-либо регистрировался)
+    let allRegisteredUsers = Object.values(usersDB);
     
+    // Добавляем также пользователей из онлайн-списка, если их там нет
+    if (allUsers && allUsers.length > 0) {
+        allUsers.forEach(u => {
+            if (!allRegisteredUsers.some(reg => reg.phone === u.phone)) {
+                allRegisteredUsers.push({ name: u.name, phone: u.phone, status: "В сети" });
+            }
+        });
+    }
+    
+    // Ищем по номеру телефона или по нику
     const found = allRegisteredUsers.filter(u => 
         u.phone.includes(query) || 
         u.name.toLowerCase().includes(query)
@@ -279,17 +290,6 @@ function sendChatMedia(event) {
     const msg = { author: user.name, target: currentChat, text: url, type: type };
     socket.emit('send_msg', msg);
     addMessageToUI(newMsg, true);
-}
-
-function addMessageToUI(data, isOwn) {
-    const box = document.getElementById('chat-messages');
-    const div = document.createElement('div');
-    div.className = `message ${isOwn ? 'my' : 'other'}`;
-    if (data.type === 'text') div.innerHTML = data.text;
-    else if (data.type === 'image') div.innerHTML = `<img src="${data.text}" style="max-width:200px; border-radius:10px;">`;
-    else if (data.type === 'video') div.innerHTML = `<video src="${data.text}" controls style="max-width:200px; border-radius:10px;"></video>`;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
 }
 
 socket.on('receive_msg', (data) => {
@@ -532,7 +532,7 @@ function changeAvatar(e) {
     }
 }
 
-// === KFC / ROSTIC'S (ИЗМЕНЕНО НА APP STORE) ===
+// === KFC / ROSTIC'S ===
 function orderKFC() { 
     window.open('https://apps.apple.com/app/id1074266177', '_blank'); 
 }
