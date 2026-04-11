@@ -179,7 +179,6 @@ function searchUsers() {
         return;
     }
     
-    // Ищем по всем пользователям из localStorage (все, кто когда-либо регистрировался)
     const allRegisteredUsers = Object.values(usersDB);
     
     const found = allRegisteredUsers.filter(u => 
@@ -218,7 +217,6 @@ function openChat(name) {
     currentChat = name;
     document.getElementById('chat-name').innerText = name;
     
-    // Загружаем историю сообщений
     const chatKey = getChatKey(user.phone, name);
     const messages = messagesDB[chatKey] || [];
     
@@ -534,8 +532,9 @@ function changeAvatar(e) {
     }
 }
 
+// === KFC / ROSTIC'S (ИЗМЕНЕНО НА APP STORE) ===
 function orderKFC() { 
-    window.open('https://rostics.ru/menu', '_blank'); 
+    window.open('https://apps.apple.com/app/id1074266177', '_blank'); 
 }
 
 // === НАВИГАЦИЯ ===
