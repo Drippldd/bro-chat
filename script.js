@@ -31,6 +31,7 @@ function savePosts() {
 // === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
 let tempPhone = "";
 const ADMIN_PHONE = "79874047434";
+const EKLER_PHONE = "79172845323"; // номер для пользователя "эклер"
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
@@ -50,16 +51,36 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
+    // АДМИН
     if (tempPhone === ADMIN_PHONE) {
         if (usersDB[tempPhone]) {
             user = usersDB[tempPhone];
         } else {
             user = {
                 phone: tempPhone,
-                name: "DRIPLDD",
+                name: "Админ",
                 password: "",
                 avatar: null,
-                status: "HOOD RICH"
+                status: "Властелин БРО 👑"
+            };
+            usersDB[tempPhone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        }
+        completeAuth();
+        return;
+    }
+    
+    // ЭКЛЕР
+    if (tempPhone === EKLER_PHONE) {
+        if (usersDB[tempPhone]) {
+            user = usersDB[tempPhone];
+        } else {
+            user = {
+                phone: tempPhone,
+                name: "эклер",
+                password: "",
+                avatar: null,
+                status: "Сладкая булочка 🥐"
             };
             usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
@@ -179,10 +200,8 @@ function searchUsers() {
         return;
     }
     
-    // Получаем всех пользователей из localStorage (все, кто когда-либо регистрировался)
     let allRegisteredUsers = Object.values(usersDB);
     
-    // Добавляем также пользователей из онлайн-списка, если их там нет
     if (allUsers && allUsers.length > 0) {
         allUsers.forEach(u => {
             if (!allRegisteredUsers.some(reg => reg.phone === u.phone)) {
@@ -191,14 +210,13 @@ function searchUsers() {
         });
     }
     
-    // Ищем по номеру телефона или по нику
     const found = allRegisteredUsers.filter(u => 
         u.phone.includes(query) || 
         u.name.toLowerCase().includes(query)
     ).filter(u => u.phone !== user.phone);
     
     if (found.length === 0) {
-        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никого не найдено. Возможно, друг ещё не зарегистрировался.</div>';
+        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никого не найдено</div>';
         resultsContainer.classList.remove('hidden');
         usersList.classList.add('hidden');
         return;
