@@ -8,6 +8,7 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
+    <!-- ЭКРАН ВХОДА -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
             <h2>Вход в БРО</h2>
@@ -16,84 +17,81 @@
         </div>
     </div>
 
+    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
-            <div class="profile-header">
-                <div class="avatar" id="user-avatar" onclick="document.getElementById('avatar-upload').click()">👤</div>
-                <input type="file" id="avatar-upload" hidden onchange="changeAvatar(event)">
+            <!-- КЛИКАБЕЛЬНЫЙ ПРОФИЛЬ -->
+            <div class="profile-header" onclick="showTab('profile-window')">
+                <div class="avatar" id="user-avatar">👤</div>
                 <div class="user-info">
                     <b id="user-name-display">Бро</b>
                     <p id="user-status-display">На связи</p>
-                    <button class="edit-btn" onclick="openEditProfile()">📝 Редакт.</button>
                 </div>
+                <div class="edit-badge">✎</div>
             </div>
             <nav class="side-menu">
                 <ul>
                     <li onclick="showTab('chats-window')" id="li-chats" class="active-li">💬 Чаты</li>
+                    <li onclick="showTab('friends-window')" id="li-friends">👥 Друзья</li>
                     <li onclick="showTab('feed-window')" id="li-feed">🚀 Лента</li>
-                    <li onclick="showTab('wall-window')" id="li-wall">🖼️ Моя Стена</li>
-                    <li onclick="showTab('reposts-window')" id="li-reposts">🔄 Репосты</li>
                     <li onclick="showTab('music-window')" id="li-music">🎵 Музыка</li>
                 </ul>
             </nav>
-            <button class="kfc-btn" onclick="orderKFC()">🍗 KFC / Rostic's</button>
         </aside>
 
         <div class="app-container">
             <header><h1 id="page-title">Чаты</h1></header>
             <main id="content-area">
+                <!-- ЧАТЫ + ЗАЯВКИ -->
                 <div id="chats-window" class="tab-content">
-                    <div class="search-box">
-                        <input type="text" id="search-input" placeholder="🔍 Найти по номеру или нику..." oninput="searchUsers()">
-                    </div>
-                    <div id="search-results" class="search-results hidden"></div>
-                    <div class="divider">В СЕТИ СЕЙЧАС</div>
+                    <div class="section-title">📨 ВХОДЯЩИЕ ЗАЯВКИ</div>
+                    <div id="friend-requests-list"></div>
+                    <div class="divider">💬 МОИ ЧАТЫ</div>
                     <div id="users-list"></div>
                 </div>
 
-                <div id="chat-window" class="tab-content hidden">
-                    <div class="chat-header">
-                        <button onclick="showTab('chats-window')" class="back-btn">←</button>
-                        <span id="chat-name">Чат</span>
-                        <div class="chat-buttons">
-                            <button class="joint-btn" id="joint-btn" onclick="toggleSync()">🤝 СИНХРОН</button>
-                            <button class="debt-btn" onclick="openDebt()">💸 КИДАЛОВО</button>
-                        </div>
+                <!-- ДРУЗЬЯ -->
+                <div id="friends-window" class="tab-content hidden">
+                    <div class="search-box">
+                        <input type="text" id="friends-search" placeholder="🔍 Найти друга..." oninput="searchFriends()">
                     </div>
-                    <div id="chat-messages" class="chat-messages"></div>
-                    <div class="chat-input">
-                        <label class="attach-btn" for="chat-file">📎</label>
-                        <input type="file" id="chat-file" hidden onchange="sendChatMedia(event)">
-                        <input type="text" id="msg-input" placeholder="Сообщение...">
-                        <button onclick="sendMessage()" class="send-btn">🚀</button>
-                    </div>
+                    <div class="section-title">👥 МОИ ДРУЗЬЯ</div>
+                    <div id="friends-list"></div>
                 </div>
 
+                <!-- ЛЕНТА -->
                 <div id="feed-window" class="tab-content hidden">
                     <div id="feed-posts"></div>
                 </div>
 
-                <div id="wall-window" class="tab-content hidden">
-                    <div class="post-input">
-                        <textarea id="post-text" placeholder="Что нового, Бро?..."></textarea>
-                        <div class="post-actions-bar">
-                            <label class="media-label">📎 Фото/Видео <input type="file" id="post-media" hidden onchange="previewMedia()"></label>
-                            <button onclick="createPost()" class="post-btn">ОПУБЛИКОВАТЬ</button>
-                        </div>
-                    </div>
-                    <div id="wall-posts"></div>
-                </div>
-
-                <div id="reposts-window" class="tab-content hidden">
-                    <div id="reposts-list"></div>
-                </div>
-
+                <!-- МУЗЫКА -->
                 <div id="music-window" class="tab-content hidden">
                     <div class="music-box">
                         <h2>SOUNDCLOUD</h2>
                         <input type="text" id="music-link" placeholder="Вставь ссылку">
                         <button onclick="playMusic()">ИГРАТЬ</button>
                         <div id="music-player"></div>
+                    </div>
+                </div>
+
+                <!-- СТРАНИЦА ПРОФИЛЯ -->
+                <div id="profile-window" class="tab-content hidden">
+                    <div class="profile-page">
+                        <div class="profile-cover"></div>
+                        <div class="profile-avatar-large" id="profile-avatar">👤</div>
+                        <div class="profile-name" id="profile-name">Бро</div>
+                        <div class="profile-status" id="profile-status">На связи</div>
+                        <button class="profile-edit-btn" onclick="openEditProfile()">📝 Редактировать профиль</button>
+                        <button class="profile-logout-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
+                        
+                        <div class="profile-stats">
+                            <div class="stat"><span id="stat-posts">0</span><br>постов</div>
+                            <div class="stat"><span id="stat-friends">0</span><br>друзей</div>
+                            <div class="stat"><span id="stat-reposts">0</span><br>репостов</div>
+                        </div>
+                        
+                        <div class="section-title">📝 МОИ ПОСТЫ</div>
+                        <div id="profile-wall-posts"></div>
                     </div>
                 </div>
             </main>
