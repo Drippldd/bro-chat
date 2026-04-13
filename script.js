@@ -87,8 +87,8 @@ function completeAuth() {
     renderUsers();
     renderFriendsList();
     renderFriendRequests();
-    if (currentChat) loadChatHistory();
     updateProfileStats();
+    if (currentChat) loadChatHistory();
 }
 
 function updateProfileStats() {
@@ -107,9 +107,9 @@ function renderFriendRequests() {
     container.innerHTML = friendRequestsDB.map(req => `
         <div class="request-item">
             <span><b>${req.from}</b> хочет добавить в друзья</span>
-            <div class="request-buttons">
-                <button class="accept-btn" onclick="acceptFriend('${req.from}')">✅</button>
-                <button class="decline-btn" onclick="declineFriend('${req.from}')">❌</button>
+            <div>
+                <button class="accept-btn" onclick="acceptFriend('${req.from}')">✅ Принять</button>
+                <button class="decline-btn" onclick="declineFriend('${req.from}')">❌ Отклонить</button>
             </div>
         </div>
     `).join('');
@@ -131,9 +131,11 @@ function sendFriendRequest(name) {
 
 socket.on('friend_request_received', (data) => {
     if (data.to === user.name) {
-        friendRequestsDB.push({ from: data.from, to: data.to });
-        saveRequests();
-        renderFriendRequests();
+        if (!friendRequestsDB.some(r => r.from === data.from)) {
+            friendRequestsDB.push({ from: data.from, to: data.to });
+            saveRequests();
+            renderFriendRequests();
+        }
     }
 });
 
@@ -146,6 +148,7 @@ function acceptFriend(name) {
         saveRequests();
         renderFriendsList();
         renderFriendRequests();
+        renderUsers();
         updateProfileStats();
         alert(`✅ ${name} теперь твой друг!`);
     }
@@ -161,6 +164,7 @@ function removeFriend(name) {
     friendsDB = friendsDB.filter(f => f.name !== name);
     saveFriends();
     renderFriendsList();
+    renderUsers();
     updateProfileStats();
 }
 
@@ -172,15 +176,12 @@ function renderFriendsList() {
         return;
     }
     container.innerHTML = friendsDB.map(f => `
-        <div class="friend-item">
-            <div class="friend-info">
-                <div class="friend-avatar">${f.name[0]}</div>
-                <div>
-                    <div class="friend-name">${f.name}</div>
-                    <div class="friend-status">${f.online ? '🟢 В сети' : '⚫ Оффлайн'}</div>
-                </div>
+        <div class="friend-item" style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:12px;">
+                <div class="friend-avatar" style="width:45px;height:45px;background:#222;border-radius:50%;display:flex;align-items:center;justify-content:center;">${f.name[0]}</div>
+                <div><div class="friend-name">${f.name}</div><div class="friend-status">${f.online ? '🟢 В сети' : '⚫ Оффлайн'}</div></div>
             </div>
-            <button class="remove-friend-btn" onclick="removeFriend('${f.name}')">❌</button>
+            <button onclick="removeFriend('${f.name}')" style="background:#ff0055; color:#fff; border:none; padding:5px 12px; border-radius:15px;">❌</button>
         </div>
     `).join('');
 }
@@ -203,7 +204,7 @@ function renderUsers() {
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div><b>${u.name}</b><small style="color:#00ff41; display:block;">В сети</small></div>
                 ${!friendsDB.some(f => f.name === u.name) ? 
-                    `<button onclick="event.stopPropagation(); sendFriendRequest('${u.name}')" class="add-friend-btn" style="background:#00ff41; border:none; padding:5px 12px; border-radius:15px;">➕</button>` : 
+                    `<button onclick="event.stopPropagation(); sendFriendRequest('${u.name}')" style="background:#00ff41; border:none; padding:5px 12px; border-radius:15px;">➕</button>` : 
                     '<span style="color:#00ff41;">✓</span>'}
             </div>
         </div>
@@ -284,6 +285,23 @@ function sendMessage() {
     input.value = "";
 }
 
+function sendChatMedia(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('video') ? 'video' : 'image';
+    const target = Object.values(usersDB).find(u => u.name === currentChat);
+    if (!target) return;
+    const chatKey = getChatKey(user.phone, target.phone);
+    if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+    const newMsg = { senderPhone: user.phone, text: url, type, time: new Date().toLocaleTimeString() };
+    messagesDB[chatKey].push(newMsg);
+    saveMessages();
+    socket.emit('send_msg', { author: user.name, target: currentChat, text: url, type });
+    addMessageToUI(newMsg, true);
+    event.target.value = "";
+}
+
 socket.on('receive_msg', (data) => {
     const sender = Object.values(usersDB).find(u => u.name === data.author);
     if (!sender) return;
@@ -315,9 +333,29 @@ function createPost() {
 }
 
 function renderAll() { renderFeed(); renderWall(); renderReposts(); updateProfileStats(); }
-function renderFeed() { const container = document.getElementById('feed-posts'); if (!container) return; if (posts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🚀 Лента пуста</div>'; else container.innerHTML = posts.map(p => postHTML(p)).join(''); }
-function renderWall() { const container = document.getElementById('wall-posts'); if (!container) return; const myPosts = posts.filter(p => p.author === user.name); if (myPosts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>'; else container.innerHTML = myPosts.map(p => postHTML(p)).join(''); }
-function renderReposts() { const container = document.getElementById('reposts-list'); if (!container) return; const myReposts = posts.filter(p => p.repostedBy && p.repostedBy.includes(user.phone)); if (myReposts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🔄 Здесь будут твои репосты</div>'; else container.innerHTML = myReposts.map(p => postHTML(p, true)).join(''); }
+
+function renderFeed() {
+    const container = document.getElementById('feed-posts');
+    if (!container) return;
+    if (posts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🚀 Лента пуста</div>';
+    else container.innerHTML = posts.map(p => postHTML(p)).join('');
+}
+
+function renderWall() {
+    const container = document.getElementById('wall-posts');
+    if (!container) return;
+    const myPosts = posts.filter(p => p.author === user.name);
+    if (myPosts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>';
+    else container.innerHTML = myPosts.map(p => postHTML(p)).join('');
+}
+
+function renderReposts() {
+    const container = document.getElementById('reposts-list');
+    if (!container) return;
+    const myReposts = posts.filter(p => p.repostedBy && p.repostedBy.includes(user.phone));
+    if (myReposts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🔄 Здесь будут твои репосты</div>';
+    else container.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
+}
 
 function postHTML(p, isRepost = false) {
     const isLiked = p.likedBy && p.likedBy.includes(user.phone);
@@ -330,14 +368,46 @@ function likePost(id) { const post = posts.find(p => p.id === id); if (post) { i
 function repostPost(id) { const post = posts.find(p => p.id === id); if (post && !post.repostedBy.includes(user.phone)) { post.repostedBy.push(user.phone); savePosts(); renderAll(); alert("✅ Пост добавлен в репосты!"); } }
 function toggleComments(id) { const div = document.getElementById(`comments-${id}`); if (div) div.style.display = div.style.display === 'none' ? 'block' : 'none'; }
 function addComment(id) { const input = document.getElementById(`comment-${id}`); const text = input.value.trim(); if (text) { const post = posts.find(p => p.id === id); if (post) { post.comments.push({ author: user.name, text }); savePosts(); renderAll(); input.value = ""; } } }
+
 function openDebt() { const amount = prompt("💸 Сколько этот Бро должен?"); if (amount) { const target = Object.values(usersDB).find(u => u.name === currentChat); if (target) { const chatKey = getChatKey(user.phone, target.phone); if (!messagesDB[chatKey]) messagesDB[chatKey] = []; const newMsg = { senderPhone: user.phone, text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`, type: 'text', time: new Date().toLocaleTimeString() }; messagesDB[chatKey].push(newMsg); saveMessages(); socket.emit('send_msg', { author: user.name, target: currentChat, text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`, type: 'text' }); addMessageToUI(newMsg, true); } } }
+
 let syncActive = false;
 function toggleSync() { const btn = document.getElementById('joint-btn'); syncActive = !syncActive; if (syncActive) { btn.classList.add('joint-active'); addMessageToUI({ author: "СИСТЕМА", text: "🤝 Синхрон включён!", type: 'text' }, false); } else { btn.classList.remove('joint-active'); addMessageToUI({ author: "СИСТЕМА", text: "⏹️ Синхрон выключен", type: 'text' }, false); } }
+
 function playMusic() { const link = document.getElementById('music-link').value; if (link.includes('soundcloud.com')) { document.getElementById('music-player').innerHTML = `<iframe width="100%" height="200" frameborder="no" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(link)}&color=%23ff5500&auto_play=true"></iframe>`; } else alert("Вставь ссылку на SoundCloud"); }
-function updateUI() { document.getElementById('user-name-display').innerText = user.name; document.getElementById('user-status-display').innerText = user.status; document.getElementById('profile-name').innerText = user.name; document.getElementById('profile-status').innerText = user.status; document.getElementById('profile-avatar').innerHTML = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : "👤"; document.getElementById('user-avatar').innerHTML = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : "👤"; }
+
+function updateUI() {
+    document.getElementById('user-name-display').innerText = user.name;
+    document.getElementById('user-status-display').innerText = user.status;
+    document.getElementById('profile-name').innerText = user.name;
+    document.getElementById('profile-status').innerText = user.status;
+    const avatarHtml = user.avatar ? `<img src="${user.avatar}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">` : "👤";
+    document.getElementById('profile-avatar').innerHTML = avatarHtml;
+    document.getElementById('user-avatar').innerHTML = avatarHtml;
+}
+
 function openEditProfile() { const n = prompt("Новый ник:", user.name); const s = prompt("Статус:", user.status); if (n) user.name = n; if (s) user.status = s; updateUI(); usersDB[user.phone] = user; localStorage.setItem("bro_users", JSON.stringify(usersDB)); socket.emit('update_user', { phone: user.phone, name: user.name }); renderAll(); }
+
 function changeAvatar(e) { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (ev) => { user.avatar = ev.target.result; updateUI(); usersDB[user.phone] = user; localStorage.setItem("bro_users", JSON.stringify(usersDB)); }; reader.readAsDataURL(file); } }
+
 function orderKFC() { window.open('https://apps.apple.com/app/id1074266177', '_blank'); }
-function logout() { localStorage.clear(); location.reload(); }
-function showTab(tabId) { document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden')); document.getElementById(tabId).classList.remove('hidden'); document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li')); const map = { 'chats-window': 'li-chats', 'friends-window': 'li-friends', 'feed-window': 'li-feed', 'music-window': 'li-music', 'profile-window': null }; if (map[tabId]) document.getElementById(map[tabId]).classList.add('active-li'); if (tabId === 'profile-window') { document.getElementById('profile-wall-posts').innerHTML = posts.filter(p => p.author === user.name).map(p => `<div class="post"><b>${p.text}</b><small>${p.time}</small></div>`).join(''); updateProfileStats(); } }
+
+function logout() { if (confirm("Точно выйти, Бро?")) { localStorage.clear(); location.reload(); } }
+
+function showTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+    document.getElementById(tabId).classList.remove('hidden');
+    document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li'));
+    const map = { 'chats-window': 'li-chats', 'friends-window': 'li-friends', 'feed-window': 'li-feed', 'music-window': 'li-music' };
+    if (map[tabId]) document.getElementById(map[tabId]).classList.add('active-li');
+    
+    if (tabId === 'profile-window') {
+        const myPosts = posts.filter(p => p.author === user.name);
+        const container = document.getElementById('profile-wall-posts');
+        if (myPosts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>';
+        else container.innerHTML = myPosts.map(p => `<div class="post"><p>${p.text}</p><small style="color:#666;">${p.time}</small></div>`).join('');
+        updateProfileStats();
+    }
+}
+
 function previewMedia() { console.log('медиа выбрано'); }
