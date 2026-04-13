@@ -40,7 +40,6 @@ function validatePhone(phone) {
     return { valid: isRu || isBy, cleaned: cleaned };
 }
 
-// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ АДМИНА В БАЗУ ===
 function ensureAdminInDB() {
     if (!usersDB[ADMIN_PHONE]) {
         usersDB[ADMIN_PHONE] = {
@@ -51,11 +50,9 @@ function ensureAdminInDB() {
             status: "Властелин БРО 👑"
         };
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        console.log("✅ Админ добавлен в базу!");
     }
 }
 
-// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ САНИ В БАЗУ ===
 function ensureSanyaInDB() {
     if (!usersDB[SANYA_PHONE]) {
         usersDB[SANYA_PHONE] = {
@@ -66,7 +63,6 @@ function ensureSanyaInDB() {
             status: "На связи"
         };
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        console.log("✅ Саня добавлен в базу!");
     }
 }
 
@@ -81,7 +77,6 @@ function login() {
     
     const phone = validation.cleaned;
     
-    // АДМИН
     if (phone === ADMIN_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -100,7 +95,6 @@ function login() {
         return;
     }
     
-    // ЭКЛЕР
     if (phone === EKLER_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -119,7 +113,6 @@ function login() {
         return;
     }
     
-    // САНЯ
     if (phone === SANYA_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -138,7 +131,6 @@ function login() {
         return;
     }
     
-    // Обычный пользователь
     if (usersDB[phone]) {
         const pass = prompt("Введите пароль:");
         if (usersDB[phone].password === pass) {
@@ -317,14 +309,33 @@ function sendMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
     if (!text || !currentChat) return;
+    
     const target = Object.values(usersDB).find(u => u.name === currentChat);
-    if (!target) return;
+    if (!target) {
+        console.log("❌ Получатель не найден:", currentChat);
+        return;
+    }
+    
     const chatKey = getChatKey(user.phone, target.phone);
     if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
-    const newMsg = { senderPhone: user.phone, text: text, type: 'text', time: new Date().toLocaleTimeString() };
+    
+    const newMsg = { 
+        senderPhone: user.phone, 
+        text: text, 
+        type: 'text', 
+        time: new Date().toLocaleTimeString() 
+    };
+    
     messagesDB[chatKey].push(newMsg);
     saveMessages();
-    socket.emit('send_msg', { author: user.name, target: currentChat, text: text, type: 'text' });
+    
+    socket.emit('send_msg', { 
+        author: user.name, 
+        target: currentChat, 
+        text: text, 
+        type: 'text' 
+    });
+    
     addMessageToUI(newMsg, true);
     input.value = "";
 }
@@ -347,6 +358,7 @@ function sendChatMedia(event) {
 }
 
 socket.on('receive_msg', (data) => {
+    console.log("📩 Получено сообщение от", data.author, "для", data.target);
     const sender = Object.values(usersDB).find(u => u.name === data.author);
     if (!sender) return;
     const chatKey = getChatKey(user.phone, sender.phone);
@@ -354,7 +366,13 @@ socket.on('receive_msg', (data) => {
     const newMsg = { senderPhone: sender.phone, text: data.text, type: data.type, time: new Date().toLocaleTimeString() };
     messagesDB[chatKey].push(newMsg);
     saveMessages();
-    if (currentChat === data.author) addMessageToUI(newMsg, false);
+    if (currentChat === data.author) {
+        addMessageToUI(newMsg, false);
+    }
+});
+
+socket.on('user_offline', (data) => {
+    console.log("⚠️ Пользователь", data.target, "не в сети");
 });
 
 function createPost() {
