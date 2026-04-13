@@ -29,8 +29,8 @@ function savePosts() {
 }
 
 // === ПРОСТАЯ АВТОРИЗАЦИЯ (БЕЗ ГЛЮКОВ) ===
-const ADMIN_PHONE = "79874047434";
-const EKLER_PHONE = "79172845323";
+const ADMIN_PHONE = "+79874047434";
+const EKLER_PHONE = "+79172845323";
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
