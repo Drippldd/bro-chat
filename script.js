@@ -29,6 +29,22 @@ function saveFriends() {
     localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
 }
 
+// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ ТЕСТОВОГО ДРУГА ===
+function addTestFriend() {
+    const testPhone = "79991234567";
+    if (!usersDB[testPhone]) {
+        usersDB[testPhone] = {
+            phone: testPhone,
+            name: "саня2016",
+            password: "123",
+            avatar: null,
+            status: "На связи"
+        };
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        console.log("✅ Тестовый друг 'саня2016' добавлен в базу!");
+    }
+}
+
 const ADMIN_PHONE = "79874047434";
 const EKLER_PHONE = "79172845323";
 
@@ -118,7 +134,9 @@ function completeAuth() {
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
     
-    // Загружаем друзей
+    // Добавляем тестового друга
+    addTestFriend();
+    
     friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || [];
     
     updateUI();
@@ -129,7 +147,6 @@ function completeAuth() {
     if (currentChat) loadChatHistory();
 }
 
-// === СПИСОК ДРУЗЕЙ ===
 function renderFriendsList() {
     const container = document.getElementById('friends-list');
     if (!container) return;
@@ -147,7 +164,6 @@ function renderFriendsList() {
     `).join('');
 }
 
-// === ПОИСК ПО ВСЕМ ЗАРЕГИСТРИРОВАННЫМ ===
 function searchUsers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('search-results');
@@ -175,8 +191,8 @@ function searchUsers() {
                     <div class="search-result-phone">📞 ${u.phone}</div>
                     <div style="margin-top: 8px;">
                         ${!isFriend ? 
-                            `<button onclick="addFriend('${u.name}', '${u.phone}')" class="add-friend-btn">➕ Добавить в друзья</button>` : 
-                            `<button onclick="openChatFromSearch('${u.name}')" class="chat-friend-btn">💬 Написать</button>`
+                            `<button onclick="addFriend('${u.name}', '${u.phone}')" class="add-friend-btn" style="background:#00ff41; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">➕ Добавить в друзья</button>` : 
+                            `<button onclick="openChatFromSearch('${u.name}')" class="chat-friend-btn" style="background:#00d4ff; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">💬 Написать</button>`
                         }
                     </div>
                 </div>
@@ -194,7 +210,7 @@ function addFriend(name, phone) {
         saveFriends();
         renderFriendsList();
         alert(`✅ ${name} добавлен в друзья!`);
-        searchUsers(); // обновляем поиск
+        searchUsers();
     } else {
         alert(`${name} уже в друзьях!`);
     }
@@ -214,7 +230,6 @@ function renderUsers() {
     const container = document.getElementById('users-list');
     if (!container) return;
     
-    // Показываем только друзей в списке чатов
     if (friendsDB.length === 0) {
         container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">👋 Добавь друзей через поиск!</div>';
         return;
@@ -230,7 +245,6 @@ function renderUsers() {
 
 socket.on('update_user_list', (users) => {
     allUsers = users;
-    // Обновляем статусы друзей
     friendsDB.forEach(f => {
         const onlineUser = users.find(u => u.phone === f.phone);
         f.online = !!onlineUser;
@@ -240,7 +254,6 @@ socket.on('update_user_list', (users) => {
     renderUsers();
 });
 
-// === ОСТАЛЬНЫЕ ФУНКЦИИ (ЧАТ, ПОСТЫ, ЛАЙКИ, КОММЕНТЫ, РЕПОСТЫ) ===
 function loadChatHistory() {
     if (!currentChat) return;
     const target = Object.values(usersDB).find(u => u.name === currentChat);
