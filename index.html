@@ -8,7 +8,6 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
             <h2>Вход в БРО</h2>
@@ -17,10 +16,8 @@
         </div>
     </div>
 
-    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
-            <!-- КЛИКАБЕЛЬНЫЙ ПРОФИЛЬ -->
             <div class="profile-header" onclick="showTab('profile-window')">
                 <div class="avatar" id="user-avatar">👤</div>
                 <div class="user-info">
@@ -37,6 +34,7 @@
                     <li onclick="showTab('music-window')" id="li-music">🎵 Музыка</li>
                 </ul>
             </nav>
+            <button class="kfc-btn" onclick="orderKFC()">🍗 KFC / Rostic's</button>
         </aside>
 
         <div class="app-container">
@@ -44,8 +42,14 @@
             <main id="content-area">
                 <!-- ЧАТЫ + ЗАЯВКИ -->
                 <div id="chats-window" class="tab-content">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="🔍 Найти по номеру или нику..." oninput="searchUsers()">
+                    </div>
+                    <div id="search-results" class="search-results hidden"></div>
+                    
                     <div class="section-title">📨 ВХОДЯЩИЕ ЗАЯВКИ</div>
                     <div id="friend-requests-list"></div>
+                    
                     <div class="divider">💬 МОИ ЧАТЫ</div>
                     <div id="users-list"></div>
                 </div>
@@ -81,17 +85,34 @@
                         <div class="profile-avatar-large" id="profile-avatar">👤</div>
                         <div class="profile-name" id="profile-name">Бро</div>
                         <div class="profile-status" id="profile-status">На связи</div>
-                        <button class="profile-edit-btn" onclick="openEditProfile()">📝 Редактировать профиль</button>
-                        <button class="profile-logout-btn" onclick="logout()">🚪 Выйти из аккаунта</button>
-                        
+                        <button class="profile-edit-btn" onclick="openEditProfile()">📝 Редактировать</button>
+                        <button class="profile-logout-btn" onclick="logout()">🚪 Выйти</button>
                         <div class="profile-stats">
                             <div class="stat"><span id="stat-posts">0</span><br>постов</div>
                             <div class="stat"><span id="stat-friends">0</span><br>друзей</div>
                             <div class="stat"><span id="stat-reposts">0</span><br>репостов</div>
                         </div>
-                        
                         <div class="section-title">📝 МОИ ПОСТЫ</div>
                         <div id="profile-wall-posts"></div>
+                    </div>
+                </div>
+
+                <!-- ЧАТ (отдельное окно) -->
+                <div id="chat-window" class="tab-content hidden">
+                    <div class="chat-header">
+                        <button onclick="showTab('chats-window')" class="back-btn">←</button>
+                        <span id="chat-name">Чат</span>
+                        <div class="chat-buttons">
+                            <button class="joint-btn" id="joint-btn" onclick="toggleSync()">🤝 СИНХРОН</button>
+                            <button class="debt-btn" onclick="openDebt()">💸 КИДАЛОВО</button>
+                        </div>
+                    </div>
+                    <div id="chat-messages" class="chat-messages"></div>
+                    <div class="chat-input">
+                        <label class="attach-btn" for="chat-file">📎</label>
+                        <input type="file" id="chat-file" hidden onchange="sendChatMedia(event)">
+                        <input type="text" id="msg-input" placeholder="Сообщение...">
+                        <button onclick="sendMessage()" class="send-btn">🚀</button>
                     </div>
                 </div>
             </main>
