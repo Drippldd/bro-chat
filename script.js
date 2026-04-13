@@ -216,6 +216,23 @@ function sendMessage() {
     input.value = "";
 }
 
+function sendChatMedia(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('video') ? 'video' : 'image';
+    const target = Object.values(usersDB).find(u => u.name === currentChat);
+    if (!target) return;
+    const chatKey = getChatKey(user.phone, target.phone);
+    if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+    const newMsg = { senderPhone: user.phone, text: url, type: type, time: new Date().toLocaleTimeString() };
+    messagesDB[chatKey].push(newMsg);
+    saveMessages();
+    socket.emit('send_msg', { author: user.name, target: currentChat, text: url, type: type });
+    addMessageToUI(newMsg, true);
+    event.target.value = "";
+}
+
 socket.on('receive_msg', (data) => {
     const sender = Object.values(usersDB).find(u => u.name === data.author);
     if (!sender) return;
