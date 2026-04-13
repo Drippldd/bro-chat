@@ -28,10 +28,9 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
-// === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
-let tempPhone = "";
+// === ПРОСТАЯ АВТОРИЗАЦИЯ (БЕЗ ГЛЮКОВ) ===
 const ADMIN_PHONE = "79874047434";
-const EKLER_PHONE = "79172845323"; 
+const EKLER_PHONE = "79172845323";
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
@@ -40,78 +39,82 @@ function validatePhone(phone) {
     return { valid: isRu || isBy, cleaned: cleaned };
 }
 
-function handlePhoneSubmit() {
-    const ph = document.getElementById('reg-phone').value.trim();
-    const validation = validatePhone(ph);
+function login() {
+    const phoneInput = document.getElementById('reg-phone').value.trim();
+    const validation = validatePhone(phoneInput);
     
     if (!validation.valid) {
         alert("Введите номер РФ (+7) или РБ (+375)");
         return;
     }
     
-    tempPhone = validation.cleaned;
+    const phone = validation.cleaned;
     
-    // === АДМИН — сразу пропускаем без пароля ===
-    if (tempPhone === ADMIN_PHONE) {
-        if (usersDB[tempPhone]) {
-            user = usersDB[tempPhone];
+    // АДМИН - без пароля
+    if (phone === ADMIN_PHONE) {
+        if (usersDB[phone]) {
+            user = usersDB[phone];
         } else {
             user = {
-                phone: tempPhone,
+                phone: phone,
                 name: "Админ",
                 password: "",
                 avatar: null,
                 status: "Властелин БРО 👑"
             };
-            usersDB[tempPhone] = user;
+            usersDB[phone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
         }
         completeAuth();
         return;
     }
     
-    if (usersDB[tempPhone]) {
-        document.getElementById('step-phone').classList.add('hidden');
-        document.getElementById('step-pass').classList.remove('hidden');
-        document.getElementById('auth-title').innerText = "Вход в БРО";
-    } else {
-        document.getElementById('step-phone').classList.add('hidden');
-        document.getElementById('step-pass').classList.remove('hidden');
-        document.getElementById('auth-title').innerText = "Регистрация в БРО";
-    }
-}
-
-function handlePassSubmit() {
-    // === АДМИН — если вдруг попал сюда, пропускаем ===
-    if (tempPhone === ADMIN_PHONE) {
+    // ЭКЛЕР - без пароля
+    if (phone === EKLER_PHONE) {
+        if (usersDB[phone]) {
+            user = usersDB[phone];
+        } else {
+            user = {
+                phone: phone,
+                name: "эклер",
+                password: "",
+                avatar: null,
+                status: "Сладкая булочка 🥐"
+            };
+            usersDB[phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        }
         completeAuth();
         return;
     }
     
-    const pass = document.getElementById('reg-pass').value;
-    if (pass.length < 3) {
-        alert("Пароль минимум 3 символа");
-        return;
-    }
-    
-    if (usersDB[tempPhone]) {
-        if (usersDB[tempPhone].password === pass) {
-            user = usersDB[tempPhone];
+    // Обычный пользователь
+    if (usersDB[phone]) {
+        // Пользователь есть - проверяем пароль
+        const pass = prompt("Введите пароль:");
+        if (usersDB[phone].password === pass) {
+            user = usersDB[phone];
             completeAuth();
         } else {
             alert("Неверный пароль!");
         }
     } else {
-        user = {
-            phone: tempPhone,
-            name: (tempPhone === EKLER_PHONE ? "эклер" : "Бро_" + tempPhone.slice(-4)),
-            password: pass,
-            avatar: null,
-            status: "На связи"
-        };
-        usersDB[tempPhone] = user;
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        completeAuth();
+        // Новый пользователь - создаём
+        const pass = prompt("Придумайте пароль (мин 3 символа):");
+        if (pass && pass.length >= 3) {
+            user = {
+                phone: phone,
+                name: "Бро_" + phone.slice(-4),
+                password: pass,
+                avatar: null,
+                status: "На связи"
+            };
+            usersDB[phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+            completeAuth();
+        } else {
+            alert("Пароль минимум 3 символа!");
+        }
     }
 }
 
@@ -128,7 +131,7 @@ function completeAuth() {
     loadChatHistory();
 }
 
-// === ЗАГРУЗКА ИСТОРИИ ЧАТОВ ===
+// === ВСЁ ОСТАЛЬНОЕ (БЕЗ ИЗМЕНЕНИЙ) ===
 function loadChatHistory() {
     if (!currentChat) return;
     const target = Object.values(usersDB).find(u => u.name === currentChat);
@@ -155,7 +158,6 @@ function addMessageToUI(data, isOwn) {
     box.scrollTop = box.scrollHeight;
 }
 
-// === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
     allUsers = users;
     renderUsers();
@@ -177,7 +179,6 @@ function renderUsers() {
     `).join('');
 }
 
-// === ПОИСК ПО ВСЕМ (И ОНЛАЙН И ОФЛАЙН) ===
 function searchUsers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('search-results');
@@ -220,7 +221,6 @@ function openChatFromSearch(name) {
     showTab('chat-window');
 }
 
-// === ОТПРАВКА СООБЩЕНИЙ ===
 function sendMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
@@ -269,7 +269,6 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ВСЁ ОСТАЛЬНОЕ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
@@ -335,6 +334,64 @@ function updateUI() {
     if (user.avatar) document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
 }
 
+function openEditProfile() {
+    const n = prompt("Новый ник:", user.name);
+    if (n) {
+        user.name = n;
+        updateUI();
+        usersDB[user.phone] = user;
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+    }
+}
+
+function changeAvatar(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            user.avatar = ev.target.result;
+            document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+            usersDB[user.phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function openDebt() {
+    const amount = prompt("💸 Сколько этот Бро должен?");
+    if (amount) {
+        const target = Object.values(usersDB).find(u => u.name === currentChat);
+        if (target) {
+            const chatKey = getChatKey(user.phone, target.phone);
+            if (!messagesDB[chatKey]) messagesDB[chatKey] = [];
+            const newMsg = {
+                senderPhone: user.phone,
+                text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`,
+                type: 'text',
+                time: new Date().toLocaleTimeString()
+            };
+            messagesDB[chatKey].push(newMsg);
+            saveMessages();
+            socket.emit('send_msg', { author: user.name, target: currentChat, text: `💸 [КИДАЛОВО]: Долг ${amount} руб.`, type: 'text' });
+            addMessageToUI(newMsg, true);
+        }
+    }
+}
+
+let syncActive = false;
+function toggleSync() {
+    const btn = document.getElementById('joint-btn');
+    syncActive = !syncActive;
+    if (syncActive) {
+        btn.classList.add('joint-active');
+        addMessageToUI({ author: "СИСТЕМА", text: "🤝 Синхрон включён!", type: 'text' }, false);
+    } else {
+        btn.classList.remove('joint-active');
+        addMessageToUI({ author: "СИСТЕМА", text: "⏹️ Синхрон выключен", type: 'text' }, false);
+    }
+}
+
 function orderKFC() { window.open('https://apps.apple.com/app/id1074266177', '_blank'); }
 
 function showTab(tabId) {
@@ -344,3 +401,5 @@ function showTab(tabId) {
     const map = { 'chats-window': 'li-chats', 'feed-window': 'li-feed', 'wall-window': 'li-wall', 'reposts-window': 'li-reposts', 'music-window': 'li-music' };
     if (map[tabId]) document.getElementById(map[tabId]).classList.add('active-li');
 }
+
+function previewMedia() { console.log('медиа выбрано'); }
