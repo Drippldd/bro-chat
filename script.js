@@ -29,9 +29,9 @@ function saveFriends() {
     localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
 }
 
-// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ ТЕСТОВОГО ДРУГА ===
+// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ ДРУГА "саня2016" ===
 function addTestFriend() {
-    const testPhone = "79991234567";
+    const testPhone = "79269302016";
     if (!usersDB[testPhone]) {
         usersDB[testPhone] = {
             phone: testPhone,
@@ -41,7 +41,7 @@ function addTestFriend() {
             status: "На связи"
         };
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        console.log("✅ Тестовый друг 'саня2016' добавлен в базу!");
+        console.log("✅ Друг 'саня2016' с номером 89269302016 добавлен в базу!");
     }
 }
 
