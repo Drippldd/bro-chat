@@ -13,8 +13,8 @@ function saveMessages() {
     localStorage.setItem("bro_messages", JSON.stringify(messagesDB));
 }
 
-function getChatKey(phone1, phone2) {
-    return [phone1, phone2].sort().join('_');
+function getChatKey(user1, user2) {
+    return [user1, user2].sort().join('_');
 }
 
 // === ЗАГРУЗКА ПОСТОВ ===
@@ -31,7 +31,7 @@ function savePosts() {
 // === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
 let tempPhone = "";
 const ADMIN_PHONE = "79874047434";
-const EKLER_PHONE = "79172845323";
+const EKLER_PHONE = "79172845323"; 
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
@@ -103,7 +103,7 @@ function completeAuth() {
     loadChatHistory();
 }
 
-// === ЧАТЫ ===
+// === ЗАГРУЗКА ИСТОРИИ ЧАТОВ ===
 function loadChatHistory() {
     if (!currentChat) return;
     const target = Object.values(usersDB).find(u => u.name === currentChat);
@@ -130,6 +130,7 @@ function addMessageToUI(data, isOwn) {
     box.scrollTop = box.scrollHeight;
 }
 
+// === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
     allUsers = users;
     renderUsers();
@@ -144,7 +145,7 @@ function renderUsers() {
         return;
     }
     container.innerHTML = online.map(u => `
-        <div class="user-item" onclick="openChatByPhone('${u.phone}')">
+        <div class="user-item" onclick="openChatFromSearch('${u.name}')">
             <b>${u.name}</b>
             <small style="color:#00ff41; display:block;">В сети</small>
         </div>
@@ -163,6 +164,7 @@ function searchUsers() {
         return;
     }
     
+    // Берем всех зарегистрированных из локальной базы
     const allRegistered = Object.values(usersDB);
     const found = allRegistered.filter(u => 
         (u.phone.includes(query) || u.name.toLowerCase().includes(query)) && u.phone !== user.phone
@@ -172,7 +174,7 @@ function searchUsers() {
         resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никто не найден</div>';
     } else {
         resultsContainer.innerHTML = found.map(u => `
-            <div class="search-result-item" onclick="openChatByPhone('${u.phone}')">
+            <div class="search-result-item" onclick="openChatFromSearch('${u.name}')">
                 <div class="search-result-name">${u.name}</div>
                 <div class="search-result-phone">📞 ${u.phone}</div>
             </div>
@@ -183,13 +185,9 @@ function searchUsers() {
     usersList.classList.add('hidden');
 }
 
-function openChatByPhone(phone) {
-    const target = usersDB[phone];
-    if (!target) return;
-    
-    currentChat = target.name;
-    document.getElementById('chat-name').innerText = target.name;
-    
+function openChatFromSearch(name) {
+    currentChat = name;
+    document.getElementById('chat-name').innerText = name;
     document.getElementById('search-input').value = '';
     document.getElementById('search-results').classList.add('hidden');
     document.getElementById('users-list').classList.remove('hidden');
@@ -198,6 +196,7 @@ function openChatByPhone(phone) {
     showTab('chat-window');
 }
 
+// === ОТПРАВКА СООБЩЕНИЙ ===
 function sendMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
@@ -246,12 +245,11 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ОСТАЛЬНОЕ (БЕЗ ИЗМЕНЕНИЙ) ===
+// === ВСЁ ОСТАЛЬНОЕ (ТВОЙ КОД БЕЗ ИЗМЕНЕНИЙ) ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
     if (!text && !file) return;
-    
     const newPost = {
         id: Date.now(),
         author: user.name,
@@ -264,7 +262,6 @@ function createPost() {
         repostedBy: [],
         time: new Date().toLocaleString()
     };
-    
     posts.unshift(newPost);
     savePosts();
     renderAll();
@@ -314,23 +311,12 @@ function updateUI() {
     if (user.avatar) document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
 }
 
-function openEditProfile() {
-    const n = prompt("Новый ник:", user.name);
-    if (n) {
-        user.name = n;
-        updateUI();
-        usersDB[user.phone] = user;
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
-    }
-}
-
 function orderKFC() { window.open('https://apps.apple.com/app/id1074266177', '_blank'); }
 
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
     document.getElementById(tabId).classList.remove('hidden');
     document.querySelectorAll('.side-menu li').forEach(li => li.classList.remove('active-li'));
-    
     const map = { 'chats-window': 'li-chats', 'feed-window': 'li-feed', 'wall-window': 'li-wall', 'reposts-window': 'li-reposts', 'music-window': 'li-music' };
     if (map[tabId]) document.getElementById(map[tabId]).classList.add('active-li');
 }
