@@ -40,6 +40,36 @@ function validatePhone(phone) {
     return { valid: isRu || isBy, cleaned: cleaned };
 }
 
+// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ АДМИНА В БАЗУ ===
+function ensureAdminInDB() {
+    if (!usersDB[ADMIN_PHONE]) {
+        usersDB[ADMIN_PHONE] = {
+            phone: ADMIN_PHONE,
+            name: "Админ",
+            password: "",
+            avatar: null,
+            status: "Властелин БРО 👑"
+        };
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        console.log("✅ Админ добавлен в базу!");
+    }
+}
+
+// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ САНИ В БАЗУ ===
+function ensureSanyaInDB() {
+    if (!usersDB[SANYA_PHONE]) {
+        usersDB[SANYA_PHONE] = {
+            phone: SANYA_PHONE,
+            name: "саня2016",
+            password: "",
+            avatar: null,
+            status: "На связи"
+        };
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        console.log("✅ Саня добавлен в базу!");
+    }
+}
+
 function login() {
     const ph = document.getElementById('reg-phone').value.trim();
     const validation = validatePhone(ph);
@@ -140,6 +170,9 @@ function completeAuth() {
     socket.emit('register_user', { name: user.name, phone: user.phone });
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
+    
+    ensureAdminInDB();
+    ensureSanyaInDB();
     
     friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || [];
     
