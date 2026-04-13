@@ -51,6 +51,25 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
+    // === АДМИН — сразу пропускаем без пароля ===
+    if (tempPhone === ADMIN_PHONE) {
+        if (usersDB[tempPhone]) {
+            user = usersDB[tempPhone];
+        } else {
+            user = {
+                phone: tempPhone,
+                name: "Админ",
+                password: "",
+                avatar: null,
+                status: "Властелин БРО 👑"
+            };
+            usersDB[tempPhone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        }
+        completeAuth();
+        return;
+    }
+    
     if (usersDB[tempPhone]) {
         document.getElementById('step-phone').classList.add('hidden');
         document.getElementById('step-pass').classList.remove('hidden');
