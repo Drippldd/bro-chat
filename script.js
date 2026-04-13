@@ -28,9 +28,10 @@ function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
 }
 
-// === ПРОСТАЯ АВТОРИЗАЦИЯ (БЕЗ ГЛЮКОВ) ===
-const ADMIN_PHONE = "+79874047434";
-const EKLER_PHONE = "+79172845323";
+// === РЕГИСТРАЦИЯ С ТЕЛЕФОНОМ И ПАРОЛЕМ ===
+let tempPhone = "";
+const ADMIN_PHONE = "79874047434";
+const EKLER_PHONE = "79172845323";
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
@@ -39,82 +40,91 @@ function validatePhone(phone) {
     return { valid: isRu || isBy, cleaned: cleaned };
 }
 
-function login() {
-    const phoneInput = document.getElementById('reg-phone').value.trim();
-    const validation = validatePhone(phoneInput);
+function handlePhoneSubmit() {
+    const ph = document.getElementById('reg-phone').value.trim();
+    const validation = validatePhone(ph);
     
     if (!validation.valid) {
         alert("Введите номер РФ (+7) или РБ (+375)");
         return;
     }
     
-    const phone = validation.cleaned;
+    tempPhone = validation.cleaned;
     
-    // АДМИН - без пароля
-    if (phone === ADMIN_PHONE) {
-        if (usersDB[phone]) {
-            user = usersDB[phone];
+    // === АДМИН — сразу пропускаем без пароля ===
+    if (tempPhone === ADMIN_PHONE) {
+        if (usersDB[tempPhone]) {
+            user = usersDB[tempPhone];
         } else {
             user = {
-                phone: phone,
+                phone: tempPhone,
                 name: "Админ",
                 password: "",
                 avatar: null,
                 status: "Властелин БРО 👑"
             };
-            usersDB[phone] = user;
+            usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
         }
         completeAuth();
         return;
     }
     
-    // ЭКЛЕР - без пароля
-    if (phone === EKLER_PHONE) {
-        if (usersDB[phone]) {
-            user = usersDB[phone];
+    // === ЭКЛЕР — тоже без пароля ===
+    if (tempPhone === EKLER_PHONE) {
+        if (usersDB[tempPhone]) {
+            user = usersDB[tempPhone];
         } else {
             user = {
-                phone: phone,
+                phone: tempPhone,
                 name: "эклер",
                 password: "",
                 avatar: null,
                 status: "Сладкая булочка 🥐"
             };
-            usersDB[phone] = user;
+            usersDB[tempPhone] = user;
             localStorage.setItem("bro_users", JSON.stringify(usersDB));
         }
         completeAuth();
         return;
     }
     
-    // Обычный пользователь
-    if (usersDB[phone]) {
-        // Пользователь есть - проверяем пароль
-        const pass = prompt("Введите пароль:");
-        if (usersDB[phone].password === pass) {
-            user = usersDB[phone];
+    if (usersDB[tempPhone]) {
+        document.getElementById('step-phone').classList.add('hidden');
+        document.getElementById('step-pass').classList.remove('hidden');
+        document.getElementById('auth-title').innerText = "Вход в БРО";
+    } else {
+        document.getElementById('step-phone').classList.add('hidden');
+        document.getElementById('step-pass').classList.remove('hidden');
+        document.getElementById('auth-title').innerText = "Регистрация в БРО";
+    }
+}
+
+function handlePassSubmit() {
+    const pass = document.getElementById('reg-pass').value;
+    if (pass.length < 3) {
+        alert("Пароль минимум 3 символа");
+        return;
+    }
+    
+    if (usersDB[tempPhone]) {
+        if (usersDB[tempPhone].password === pass) {
+            user = usersDB[tempPhone];
             completeAuth();
         } else {
             alert("Неверный пароль!");
         }
     } else {
-        // Новый пользователь - создаём
-        const pass = prompt("Придумайте пароль (мин 3 символа):");
-        if (pass && pass.length >= 3) {
-            user = {
-                phone: phone,
-                name: "Бро_" + phone.slice(-4),
-                password: pass,
-                avatar: null,
-                status: "На связи"
-            };
-            usersDB[phone] = user;
-            localStorage.setItem("bro_users", JSON.stringify(usersDB));
-            completeAuth();
-        } else {
-            alert("Пароль минимум 3 символа!");
-        }
+        user = {
+            phone: tempPhone,
+            name: "Бро_" + tempPhone.slice(-4),
+            password: pass,
+            avatar: null,
+            status: "На связи"
+        };
+        usersDB[tempPhone] = user;
+        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        completeAuth();
     }
 }
 
@@ -131,7 +141,7 @@ function completeAuth() {
     loadChatHistory();
 }
 
-// === ВСЁ ОСТАЛЬНОЕ (БЕЗ ИЗМЕНЕНИЙ) ===
+// === ЗАГРУЗКА ИСТОРИИ ЧАТОВ ===
 function loadChatHistory() {
     if (!currentChat) return;
     const target = Object.values(usersDB).find(u => u.name === currentChat);
@@ -158,6 +168,7 @@ function addMessageToUI(data, isOwn) {
     box.scrollTop = box.scrollHeight;
 }
 
+// === ОБНОВЛЕНИЕ СПИСКА ПОЛЬЗОВАТЕЛЕЙ ===
 socket.on('update_user_list', (users) => {
     allUsers = users;
     renderUsers();
@@ -179,6 +190,7 @@ function renderUsers() {
     `).join('');
 }
 
+// === ПОИСК ПО ВСЕМ (И ОНЛАЙН И ОФЛАЙН) ===
 function searchUsers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('search-results');
@@ -221,6 +233,7 @@ function openChatFromSearch(name) {
     showTab('chat-window');
 }
 
+// === ОТПРАВКА СООБЩЕНИЙ ===
 function sendMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
@@ -269,6 +282,7 @@ socket.on('receive_msg', (data) => {
     }
 });
 
+// === ВСЁ ОСТАЛЬНОЕ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
