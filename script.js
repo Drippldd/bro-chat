@@ -6,6 +6,7 @@ let currentChat = "";
 let allUsers = [];
 let usersDB = JSON.parse(localStorage.getItem("bro_users")) || {};
 let messagesDB = JSON.parse(localStorage.getItem("bro_messages")) || {};
+let friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || [];
 
 function saveMessages() {
     localStorage.setItem("bro_messages", JSON.stringify(messagesDB));
@@ -22,6 +23,10 @@ function loadPosts() {
 
 function savePosts() {
     localStorage.setItem(`bro_posts_${user.phone}`, JSON.stringify(posts));
+}
+
+function saveFriends() {
+    localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
 }
 
 const ADMIN_PHONE = "79874047434";
@@ -45,7 +50,6 @@ function login() {
     
     const phone = validation.cleaned;
     
-    // Админ — без пароля
     if (phone === ADMIN_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -64,7 +68,6 @@ function login() {
         return;
     }
     
-    // Эклер — без пароля
     if (phone === EKLER_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -83,7 +86,6 @@ function login() {
         return;
     }
     
-    // Обычный пользователь
     if (usersDB[phone]) {
         const pass = prompt("Введите пароль:");
         if (usersDB[phone].password === pass) {
@@ -115,13 +117,130 @@ function completeAuth() {
     socket.emit('register_user', { name: user.name, phone: user.phone });
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
+    
+    // Загружаем друзей
+    friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || [];
+    
     updateUI();
     loadPosts();
     renderAll();
     renderUsers();
+    renderFriendsList();
     if (currentChat) loadChatHistory();
 }
 
+// === СПИСОК ДРУЗЕЙ ===
+function renderFriendsList() {
+    const container = document.getElementById('friends-list');
+    if (!container) return;
+    
+    if (friendsDB.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">👋 Добавь друзей через поиск!</div>';
+        return;
+    }
+    
+    container.innerHTML = friendsDB.map(f => `
+        <div class="user-item" onclick="openChatFromSearch('${f.name}')">
+            <b>${f.name}</b>
+            <small style="color:#00ff41; display:block;">${f.online ? 'В сети' : 'Был в сети'}</small>
+        </div>
+    `).join('');
+}
+
+// === ПОИСК ПО ВСЕМ ЗАРЕГИСТРИРОВАННЫМ ===
+function searchUsers() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('search-results');
+    const usersList = document.getElementById('users-list');
+    
+    if (query === "") {
+        resultsContainer.classList.add('hidden');
+        usersList.classList.remove('hidden');
+        return;
+    }
+    
+    const allRegistered = Object.values(usersDB);
+    const found = allRegistered.filter(u => 
+        (u.phone.includes(query) || u.name.toLowerCase().includes(query)) && u.phone !== user.phone
+    );
+    
+    if (found.length === 0) {
+        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никто не найден</div>';
+    } else {
+        resultsContainer.innerHTML = found.map(u => {
+            const isFriend = friendsDB.some(f => f.phone === u.phone);
+            return `
+                <div class="search-result-item">
+                    <div class="search-result-name">${u.name}</div>
+                    <div class="search-result-phone">📞 ${u.phone}</div>
+                    <div style="margin-top: 8px;">
+                        ${!isFriend ? 
+                            `<button onclick="addFriend('${u.name}', '${u.phone}')" class="add-friend-btn">➕ Добавить в друзья</button>` : 
+                            `<button onclick="openChatFromSearch('${u.name}')" class="chat-friend-btn">💬 Написать</button>`
+                        }
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    resultsContainer.classList.remove('hidden');
+    usersList.classList.add('hidden');
+}
+
+function addFriend(name, phone) {
+    if (!friendsDB.some(f => f.phone === phone)) {
+        friendsDB.push({ name: name, phone: phone, online: false });
+        saveFriends();
+        renderFriendsList();
+        alert(`✅ ${name} добавлен в друзья!`);
+        searchUsers(); // обновляем поиск
+    } else {
+        alert(`${name} уже в друзьях!`);
+    }
+}
+
+function openChatFromSearch(name) {
+    currentChat = name;
+    document.getElementById('chat-name').innerText = name;
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-results').classList.add('hidden');
+    document.getElementById('users-list').classList.remove('hidden');
+    loadChatHistory();
+    showTab('chat-window');
+}
+
+function renderUsers() {
+    const container = document.getElementById('users-list');
+    if (!container) return;
+    
+    // Показываем только друзей в списке чатов
+    if (friendsDB.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">👋 Добавь друзей через поиск!</div>';
+        return;
+    }
+    
+    container.innerHTML = friendsDB.map(f => `
+        <div class="user-item" onclick="openChatFromSearch('${f.name}')">
+            <b>${f.name}</b>
+            <small style="color:#00ff41; display:block;">${f.online ? 'В сети' : 'Был в сети'}</small>
+        </div>
+    `).join('');
+}
+
+socket.on('update_user_list', (users) => {
+    allUsers = users;
+    // Обновляем статусы друзей
+    friendsDB.forEach(f => {
+        const onlineUser = users.find(u => u.phone === f.phone);
+        f.online = !!onlineUser;
+    });
+    saveFriends();
+    renderFriendsList();
+    renderUsers();
+});
+
+// === ОСТАЛЬНЫЕ ФУНКЦИИ (ЧАТ, ПОСТЫ, ЛАЙКИ, КОММЕНТЫ, РЕПОСТЫ) ===
 function loadChatHistory() {
     if (!currentChat) return;
     const target = Object.values(usersDB).find(u => u.name === currentChat);
@@ -142,62 +261,6 @@ function addMessageToUI(data, isOwn) {
     else if (data.type === 'video') div.innerHTML = `<video src="${data.text}" controls style="max-width:200px; border-radius:10px;"></video>`;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
-}
-
-socket.on('update_user_list', (users) => {
-    allUsers = users;
-    renderUsers();
-});
-
-function renderUsers() {
-    const container = document.getElementById('users-list');
-    if (!container) return;
-    const online = allUsers.filter(u => u.phone !== user.phone);
-    if (online.length === 0) {
-        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🤷 Никого в сети. Используй поиск!</div>';
-        return;
-    }
-    container.innerHTML = online.map(u => `
-        <div class="user-item" onclick="openChatFromSearch('${u.name}')">
-            <b>${u.name}</b>
-            <small style="color:#00ff41; display:block;">В сети</small>
-        </div>
-    `).join('');
-}
-
-function searchUsers() {
-    const query = document.getElementById('search-input').value.trim().toLowerCase();
-    const resultsContainer = document.getElementById('search-results');
-    const usersList = document.getElementById('users-list');
-    if (query === "") {
-        resultsContainer.classList.add('hidden');
-        usersList.classList.remove('hidden');
-        return;
-    }
-    const allRegistered = Object.values(usersDB);
-    const found = allRegistered.filter(u => (u.phone.includes(query) || u.name.toLowerCase().includes(query)) && u.phone !== user.phone);
-    if (found.length === 0) {
-        resultsContainer.innerHTML = '<div class="search-result-item" style="color:#555;">❌ Никто не найден</div>';
-    } else {
-        resultsContainer.innerHTML = found.map(u => `
-            <div class="search-result-item" onclick="openChatFromSearch('${u.name}')">
-                <div class="search-result-name">${u.name}</div>
-                <div class="search-result-phone">📞 ${u.phone}</div>
-            </div>
-        `).join('');
-    }
-    resultsContainer.classList.remove('hidden');
-    usersList.classList.add('hidden');
-}
-
-function openChatFromSearch(name) {
-    currentChat = name;
-    document.getElementById('chat-name').innerText = name;
-    document.getElementById('search-input').value = '';
-    document.getElementById('search-results').classList.add('hidden');
-    document.getElementById('users-list').classList.remove('hidden');
-    loadChatHistory();
-    showTab('chat-window');
 }
 
 function sendMessage() {
