@@ -29,24 +29,9 @@ function saveFriends() {
     localStorage.setItem(`bro_friends_${user.phone}`, JSON.stringify(friendsDB));
 }
 
-// === ПРИНУДИТЕЛЬНОЕ ДОБАВЛЕНИЕ ДРУГА "саня2016" ===
-function addTestFriend() {
-    const testPhone = "79269302016";
-    if (!usersDB[testPhone]) {
-        usersDB[testPhone] = {
-            phone: testPhone,
-            name: "саня2016",
-            password: "123",
-            avatar: null,
-            status: "На связи"
-        };
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        console.log("✅ Друг 'саня2016' с номером 89269302016 добавлен в базу!");
-    }
-}
-
 const ADMIN_PHONE = "79874047434";
 const EKLER_PHONE = "79172845323";
+const SANYA_PHONE = "79269302016";
 
 function validatePhone(phone) {
     const cleaned = phone.replace(/\D/g, '');
@@ -66,6 +51,7 @@ function login() {
     
     const phone = validation.cleaned;
     
+    // АДМИН
     if (phone === ADMIN_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -84,6 +70,7 @@ function login() {
         return;
     }
     
+    // ЭКЛЕР
     if (phone === EKLER_PHONE) {
         if (usersDB[phone]) {
             user = usersDB[phone];
@@ -102,6 +89,26 @@ function login() {
         return;
     }
     
+    // САНЯ
+    if (phone === SANYA_PHONE) {
+        if (usersDB[phone]) {
+            user = usersDB[phone];
+        } else {
+            user = {
+                phone: phone,
+                name: "саня2016",
+                password: "",
+                avatar: null,
+                status: "На связи"
+            };
+            usersDB[phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        }
+        completeAuth();
+        return;
+    }
+    
+    // Обычный пользователь
     if (usersDB[phone]) {
         const pass = prompt("Введите пароль:");
         if (usersDB[phone].password === pass) {
@@ -133,9 +140,6 @@ function completeAuth() {
     socket.emit('register_user', { name: user.name, phone: user.phone });
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('app-shell').classList.remove('hidden');
-    
-    // Добавляем тестового друга
-    addTestFriend();
     
     friendsDB = JSON.parse(localStorage.getItem(`bro_friends_${user.phone}`)) || [];
     
