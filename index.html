@@ -8,18 +8,12 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА -->
+    <!-- ЭКРАН ВХОДА (УПРОЩЁННЫЙ) -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
-            <h2 id="auth-title">Вход в БРО</h2>
-            <div id="step-phone">
-                <input type="tel" id="reg-phone" placeholder="+7 или +375...">
-                <button onclick="handlePhoneSubmit()">ДАЛЕЕ</button>
-            </div>
-            <div id="step-pass" class="hidden">
-                <input type="password" id="reg-pass" placeholder="Пароль">
-                <button onclick="handlePassSubmit()">ВОЙТИ</button>
-            </div>
+            <h2>Вход в БРО</h2>
+            <input type="tel" id="reg-phone" placeholder="+7 или +375...">
+            <button onclick="login()">ВОЙТИ</button>
         </div>
     </div>
 
