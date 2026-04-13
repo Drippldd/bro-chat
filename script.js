@@ -82,6 +82,12 @@ function handlePhoneSubmit() {
 }
 
 function handlePassSubmit() {
+    // === АДМИН — если вдруг попал сюда, пропускаем ===
+    if (tempPhone === ADMIN_PHONE) {
+        completeAuth();
+        return;
+    }
+    
     const pass = document.getElementById('reg-pass').value;
     if (pass.length < 3) {
         alert("Пароль минимум 3 символа");
@@ -98,10 +104,10 @@ function handlePassSubmit() {
     } else {
         user = {
             phone: tempPhone,
-            name: (tempPhone === ADMIN_PHONE) ? "Админ" : (tempPhone === EKLER_PHONE ? "эклер" : "Бро_" + tempPhone.slice(-4)),
+            name: (tempPhone === EKLER_PHONE ? "эклер" : "Бро_" + tempPhone.slice(-4)),
             password: pass,
             avatar: null,
-            status: (tempPhone === ADMIN_PHONE) ? "Властелин БРО 👑" : "На связи"
+            status: "На связи"
         };
         usersDB[tempPhone] = user;
         localStorage.setItem("bro_users", JSON.stringify(usersDB));
@@ -183,7 +189,6 @@ function searchUsers() {
         return;
     }
     
-    // Берем всех зарегистрированных из локальной базы
     const allRegistered = Object.values(usersDB);
     const found = allRegistered.filter(u => 
         (u.phone.includes(query) || u.name.toLowerCase().includes(query)) && u.phone !== user.phone
@@ -264,7 +269,7 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ВСЁ ОСТАЛЬНОЕ (ТВОЙ КОД БЕЗ ИЗМЕНЕНИЙ) ===
+// === ВСЁ ОСТАЛЬНОЕ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
