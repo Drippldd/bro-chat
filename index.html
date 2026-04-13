@@ -8,7 +8,6 @@
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
-    <!-- ЭКРАН ВХОДА (УПРОЩЁННЫЙ) -->
     <div id="auth-screen" class="modal">
         <div class="auth-card">
             <h2>Вход в БРО</h2>
@@ -17,7 +16,6 @@
         </div>
     </div>
 
-    <!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ -->
     <div class="main-wrapper hidden" id="app-shell">
         <aside class="sidebar">
             <div class="profile-header">
@@ -45,7 +43,6 @@
             <header><h1 id="page-title">Чаты</h1></header>
             <main id="content-area">
                 <div id="chats-window" class="tab-content">
-                    <!-- ПОИСК -->
                     <div class="search-box">
                         <input type="text" id="search-input" placeholder="🔍 Найти по номеру или нику..." oninput="searchUsers()">
                     </div>
