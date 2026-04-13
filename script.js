@@ -51,7 +51,7 @@ function handlePhoneSubmit() {
     
     tempPhone = validation.cleaned;
     
-    // === АДМИН — сразу пропускаем без пароля ===
+    // АДМИН — сразу пропускаем без пароля
     if (tempPhone === ADMIN_PHONE) {
         if (usersDB[tempPhone]) {
             user = usersDB[tempPhone];
@@ -70,7 +70,7 @@ function handlePhoneSubmit() {
         return;
     }
     
-    // === ЭКЛЕР — тоже без пароля ===
+    // ЭКЛЕР — тоже без пароля
     if (tempPhone === EKLER_PHONE) {
         if (usersDB[tempPhone]) {
             user = usersDB[tempPhone];
@@ -190,7 +190,7 @@ function renderUsers() {
     `).join('');
 }
 
-// === ПОИСК ПО ВСЕМ (И ОНЛАЙН И ОФЛАЙН) ===
+// === ПОИСК ===
 function searchUsers() {
     const query = document.getElementById('search-input').value.trim().toLowerCase();
     const resultsContainer = document.getElementById('search-results');
@@ -282,11 +282,12 @@ socket.on('receive_msg', (data) => {
     }
 });
 
-// === ВСЁ ОСТАЛЬНОЕ ===
+// === ПОСТЫ С ЛАЙКАМИ, КОММЕНТАМИ, РЕПОСТАМИ ===
 function createPost() {
     const text = document.getElementById('post-text').value;
     const file = document.getElementById('post-media').files[0];
     if (!text && !file) return;
+    
     const newPost = {
         id: Date.now(),
         author: user.name,
@@ -299,79 +300,126 @@ function createPost() {
         repostedBy: [],
         time: new Date().toLocaleString()
     };
+    
     posts.unshift(newPost);
     savePosts();
     renderAll();
     document.getElementById('post-text').value = "";
+    document.getElementById('post-media').value = "";
 }
 
-function renderAll() { renderFeed(); renderWall(); renderReposts(); }
+function renderAll() {
+    renderFeed();
+    renderWall();
+    renderReposts();
+}
+
 function renderFeed() {
     const container = document.getElementById('feed-posts');
-    if (posts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🚀 Лента пуста</div>';
-    else container.innerHTML = posts.map(p => postHTML(p)).join('');
+    if (!container) return;
+    if (posts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🚀 Лента пуста</div>';
+        return;
+    }
+    container.innerHTML = posts.map(p => postHTML(p)).join('');
 }
+
 function renderWall() {
     const container = document.getElementById('wall-posts');
+    if (!container) return;
     const myPosts = posts.filter(p => p.author === user.name);
-    if (myPosts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>';
-    else container.innerHTML = myPosts.map(p => postHTML(p)).join('');
+    if (myPosts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">😎 Твоя стена пуста</div>';
+        return;
+    }
+    container.innerHTML = myPosts.map(p => postHTML(p)).join('');
 }
+
 function renderReposts() {
     const container = document.getElementById('reposts-list');
+    if (!container) return;
     const myReposts = posts.filter(p => p.repostedBy && p.repostedBy.includes(user.phone));
-    if (myReposts.length === 0) container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🔄 Здесь будут репосты</div>';
-    else container.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
+    if (myReposts.length === 0) {
+        container.innerHTML = '<div style="color:#555; text-align:center; padding:20px;">🔄 Здесь будут твои репосты</div>';
+        return;
+    }
+    container.innerHTML = myReposts.map(p => postHTML(p, true)).join('');
 }
 
 function postHTML(p, isRepost = false) {
+    const isLiked = p.likedBy && p.likedBy.includes(user.phone);
+    const isReposted = p.repostedBy && p.repostedBy.includes(user.phone);
     const mediaHTML = p.media ? (p.mediaType === 'video' ? `<video src="${p.media}" controls></video>` : `<img src="${p.media}">`) : '';
+    
     return `
-        <div class="post">
-            <b style="color:#00ff41">@${p.author}</b> <small style="color:#666;"> ${p.time}</small>
+        <div class="post" id="post-${p.id}">
+            <b style="color:#00ff41">@${p.author}</b>
+            <small style="color:#666;"> ${p.time}</small>
             <p style="margin:10px 0;">${p.text}</p>
             ${mediaHTML}
+            <div class="post-actions">
+                <span class="${isLiked ? 'liked' : ''}" onclick="likePost(${p.id})">❤️ ${p.likes}</span>
+                <span onclick="toggleComments(${p.id})">💬 ${p.comments.length}</span>
+                <span class="${isReposted ? 'liked' : ''}" onclick="repostPost(${p.id})">🔄 ${isRepost ? 'Репостнут' : 'Репост'}</span>
+            </div>
+            <div class="comments-section" id="comments-${p.id}" style="display:none;">
+                ${p.comments.map(c => `<div class="comment"><strong>${c.author}:</strong> ${c.text}</div>`).join('')}
+                <div class="comment-input">
+                    <input type="text" id="comment-${p.id}" placeholder="Написать комментарий...">
+                    <button onclick="addComment(${p.id})">→</button>
+                </div>
+            </div>
         </div>
     `;
 }
 
-function playMusic() {
-    const link = document.getElementById('music-link').value;
-    if (link.includes('soundcloud.com')) {
-        document.getElementById('music-player').innerHTML = `<iframe width="100%" height="200" frameborder="no" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(link)}&color=%23ff5500&auto_play=true"></iframe>`;
-    } else { alert("Вставь ссылку на SoundCloud"); }
-}
-
-function updateUI() {
-    document.getElementById('user-name-display').innerText = user.name;
-    document.getElementById('user-status-display').innerText = user.status;
-    if (user.avatar) document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
-}
-
-function openEditProfile() {
-    const n = prompt("Новый ник:", user.name);
-    if (n) {
-        user.name = n;
-        updateUI();
-        usersDB[user.phone] = user;
-        localStorage.setItem("bro_users", JSON.stringify(usersDB));
+function likePost(id) {
+    const post = posts.find(p => p.id === id);
+    if (post) {
+        if (post.likedBy.includes(user.phone)) {
+            post.likes--;
+            post.likedBy = post.likedBy.filter(uid => uid !== user.phone);
+        } else {
+            post.likes++;
+            post.likedBy.push(user.phone);
+        }
+        savePosts();
+        renderAll();
     }
 }
 
-function changeAvatar(e) {
-    const file = e.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            user.avatar = ev.target.result;
-            document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
-            usersDB[user.phone] = user;
-            localStorage.setItem("bro_users", JSON.stringify(usersDB));
-        };
-        reader.readAsDataURL(file);
+function repostPost(id) {
+    const post = posts.find(p => p.id === id);
+    if (post && !post.repostedBy.includes(user.phone)) {
+        post.repostedBy.push(user.phone);
+        savePosts();
+        renderAll();
+        alert("✅ Пост добавлен в репосты!");
+    } else if (post && post.repostedBy.includes(user.phone)) {
+        alert("⚠️ Ты уже репостнул этот пост!");
     }
 }
 
+function toggleComments(id) {
+    const div = document.getElementById(`comments-${id}`);
+    if (div) div.style.display = div.style.display === 'none' ? 'block' : 'none';
+}
+
+function addComment(id) {
+    const input = document.getElementById(`comment-${id}`);
+    const text = input.value.trim();
+    if (text) {
+        const post = posts.find(p => p.id === id);
+        if (post) {
+            post.comments.push({ author: user.name, text: text });
+            savePosts();
+            renderAll();
+            input.value = "";
+        }
+    }
+}
+
+// === КИДАЛОВО ===
 function openDebt() {
     const amount = prompt("💸 Сколько этот Бро должен?");
     if (amount) {
@@ -393,6 +441,7 @@ function openDebt() {
     }
 }
 
+// === СИНХРОН ===
 let syncActive = false;
 function toggleSync() {
     const btn = document.getElementById('joint-btn');
@@ -406,8 +455,54 @@ function toggleSync() {
     }
 }
 
-function orderKFC() { window.open('https://apps.apple.com/app/id1074266177', '_blank'); }
+// === МУЗЫКА ===
+function playMusic() {
+    const link = document.getElementById('music-link').value;
+    if (link.includes('soundcloud.com')) {
+        document.getElementById('music-player').innerHTML = `<iframe width="100%" height="200" frameborder="no" src="https://w.soundcloud.com/player/?url=${encodeURIComponent(link)}&color=%23ff5500&auto_play=true"></iframe>`;
+    } else {
+        alert("Вставь ссылку на SoundCloud");
+    }
+}
 
+// === ПРОФИЛЬ ===
+function updateUI() {
+    document.getElementById('user-name-display').innerText = user.name;
+    document.getElementById('user-status-display').innerText = user.status;
+    if (user.avatar) document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+}
+
+function openEditProfile() {
+    const n = prompt("Новый ник:", user.name);
+    const s = prompt("Статус:", user.status);
+    if (n) user.name = n;
+    if (s) user.status = s;
+    updateUI();
+    usersDB[user.phone] = user;
+    localStorage.setItem("bro_users", JSON.stringify(usersDB));
+    socket.emit('update_user', { phone: user.phone, name: user.name });
+}
+
+function changeAvatar(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            user.avatar = ev.target.result;
+            document.getElementById('user-avatar').innerHTML = `<img src="${user.avatar}">`;
+            usersDB[user.phone] = user;
+            localStorage.setItem("bro_users", JSON.stringify(usersDB));
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+// === KFC ===
+function orderKFC() { 
+    window.open('https://apps.apple.com/app/id1074266177', '_blank'); 
+}
+
+// === НАВИГАЦИЯ ===
 function showTab(tabId) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
     document.getElementById(tabId).classList.remove('hidden');
@@ -416,4 +511,6 @@ function showTab(tabId) {
     if (map[tabId]) document.getElementById(map[tabId]).classList.add('active-li');
 }
 
-function previewMedia() { console.log('медиа выбрано'); }
+function previewMedia() { 
+    console.log('медиа выбрано'); 
+}
